@@ -852,7 +852,7 @@ const workflowSteps = [
 // ─── Theme hook ───────────────────────────────────────────────────────────────
 function useTheme() {
   const getPreferredTheme = () =>
-    window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    window.matchMedia?.("(prefers-color-scheme: dark)")?.matches ? "dark" : "light";
 
   const [theme, setTheme] = useState(getPreferredTheme);
 
@@ -865,7 +865,8 @@ function useTheme() {
 
   // Listen to OS preference changes
   useEffect(() => {
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const mq = window.matchMedia?.("(prefers-color-scheme: dark)");
+    if (!mq) return;
     const handler = (e) => setTheme(e.matches ? "dark" : "light");
 
     if (mq.addEventListener) {
