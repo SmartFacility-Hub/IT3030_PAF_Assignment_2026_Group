@@ -3,13 +3,14 @@ package com.smartcampus.incidentservice.repository;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
 
 import com.smartcampus.incidentservice.model.Ticket;
 import com.smartcampus.incidentservice.enums.TicketStatus;
 import com.smartcampus.incidentservice.enums.Priority;
 
 
-
+@Repository
 public interface TicketRepository extends JpaRepository<Ticket,Long> {
 
     //find all tickets created by a specific user
