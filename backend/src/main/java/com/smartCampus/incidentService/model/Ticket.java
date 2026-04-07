@@ -1,23 +1,16 @@
-package com.smartCampus.incidentService.model;
-
-
-
-
+package com.smartcampus.incidentservice.model;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-
-
-import com.smartCampus.incidentService.enums.Category;
-import com.smartCampus.incidentService.enums.Priority;
-import com.smartCampus.incidentService.enums.TicketStatus;
+import com.smartcampus.incidentservice.enums.Category;
+import com.smartcampus.incidentservice.enums.Priority;
+import com.smartcampus.incidentservice.enums.TicketStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
-
 
 @Entity
 @Table(name = "tickets")
@@ -30,7 +23,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 public class Ticket {
 
     @Id
-    @GeneratedValue(Strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(nullable = false)
@@ -40,7 +33,7 @@ public class Ticket {
     @Column(nullable = false)
     private Category category;
 
-    @column(nullable = false, length = 1000)
+    @Column(nullable = false, length = 1000)
     private String description;
 
     @Enumerated(EnumType.STRING)
@@ -71,16 +64,14 @@ public class Ticket {
     @UpdateTimestamp
     private LocalDateTime updatedAt;
 
-     // One ticket can have many attachments
-     @OneToMany(mappedBy = "ticket", cascade = CasCadeType.ALL, orphanRemoval = true)
-     @Builder.Default
-     private List<TicketAttachment> attachments = new ArrayList<>();
+    // One ticket can have many attachments
+    @OneToMany(mappedBy = "ticket", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<TicketAttachment> attachments = new ArrayList<>();
 
-     // One ticket can have many comments
-     @OneToMany(mappedBy = "ticket", cascade = CasCadeType.ALL, orphanRemoval = true)
-     @Builder.Default
-     private List<Comments> comments = new ArrayList<>();
-
-
+    // One ticket can have many comments
+    @OneToMany(mappedBy = "ticket", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Comment> comments = new ArrayList<>();
 
 }

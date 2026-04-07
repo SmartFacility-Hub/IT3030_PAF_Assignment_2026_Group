@@ -1,4 +1,4 @@
-package com.smartCampus.incidentService.enums;
+package com.smartcampus.incidentservice.enums;
 
 public enum Priority {
     LOW,
