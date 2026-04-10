@@ -1,22 +1,20 @@
-package com.smartcampus.incidentservice.model;
+package com.smartfacility.app.incidentservice.model;
 
 import java.time.LocalDateTime;
-
 import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
 import jakarta.persistence.*;
 import lombok.*;
 
 
 @Entity
-@Table(name = "comments")
+@Table(name = "ticket_attachments")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 
-public class Comment {
+public class TicketAttachment {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -25,17 +23,18 @@ public class Comment {
     @JoinColumn(name = "ticket_id", nullable = false)
     private Ticket ticket;
 
-    @Column(nullable = false, length = 1000)
-    private String content;
-
-    // Who wrote this comment (userId from JWT)
     @Column(nullable = false)
-    private String createdBy;
+    private String originalFileName;
+
+    @Column(nullable = false)
+    private String storedFileName;
+
+    @Column(nullable = false)
+    private String fileType;
+
+    @Column(nullable = false)
+    private String filePath;
 
     @CreationTimestamp
-    @Column(updatable = false)
-    private LocalDateTime createdAt;
-
-    @UpdateTimestamp
-    private LocalDateTime updatedAt;
+    private LocalDateTime uploadedAt;
 }

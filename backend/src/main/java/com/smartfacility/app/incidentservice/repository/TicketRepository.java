@@ -1,13 +1,13 @@
-package com.smartcampus.incidentservice.repository;
+package com.smartfacility.app.incidentservice.repository;
 
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import com.smartcampus.incidentservice.model.Ticket;
-import com.smartcampus.incidentservice.enums.TicketStatus;
-import com.smartcampus.incidentservice.enums.Priority;
+import com.smartfacility.app.incidentservice.model.Ticket;
+import com.smartfacility.app.incidentservice.enums.TicketStatus;
+import com.smartfacility.app.incidentservice.enums.Priority;
 
 
 @Repository

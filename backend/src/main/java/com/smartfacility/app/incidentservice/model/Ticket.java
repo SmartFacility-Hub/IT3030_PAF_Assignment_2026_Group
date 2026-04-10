@@ -1,12 +1,12 @@
-package com.smartcampus.incidentservice.model;
+package com.smartfacility.app.incidentservice.model;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.smartcampus.incidentservice.enums.Category;
-import com.smartcampus.incidentservice.enums.Priority;
-import com.smartcampus.incidentservice.enums.TicketStatus;
+import com.smartfacility.app.incidentservice.enums.Category;
+import com.smartfacility.app.incidentservice.enums.Priority;
+import com.smartfacility.app.incidentservice.enums.TicketStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;

@@ -1,4 +1,4 @@
-package com.smartcampus.incidentservice.enums;
+package com.smartfacility.app.incidentservice.enums;
 
 public enum Category {
     ELECTRICAL,
