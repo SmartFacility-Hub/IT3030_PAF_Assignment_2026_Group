@@ -36,6 +36,7 @@ public class TicketService {
         Ticket ticket = Ticket.builder()
             .resourceLocation(dto.getResourceLocation())
             .category(dto.getCategory())
+            .description(dto.getDescription())
             .priority(dto.getPriority())
             .contactDetails(dto.getContactDetails())
             .status(TicketStatus.OPEN)  // always starts as OPEN
