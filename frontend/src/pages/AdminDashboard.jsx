@@ -1,4 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import api from "../services/api";
 
 // ─── Theme Definitions (identical tokens to HomePage) ────────────────────────
 const themes = {
@@ -952,14 +955,50 @@ function Donut({ segments }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function AdminDashboard() {
   const { theme, toggle } = useTheme();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeNav, setActiveNav] = useState("dashboard");
   const [approvals, setApprovals] = useState(pendingBookings);
+  const [allUsers, setAllUsers] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(false);
 
   const kpi = useCounter({ bookings: 1247, assets: 382, incidents: 47, uptime: 99 });
 
   const handleApprove = (id) => setApprovals(a => a.filter(x => x.id !== id));
   const handleReject  = (id) => setApprovals(a => a.filter(x => x.id !== id));
+
+  // Fetch all users from the admin API
+  const fetchUsers = useCallback(async () => {
+    setUsersLoading(true);
+    try {
+      const res = await api.get('/api/admin/users');
+      setAllUsers(res.data);
+    } catch (err) {
+      console.error('Failed to fetch users:', err);
+    } finally {
+      setUsersLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
+
+  // Update a user's roles
+  const handleRoleChange = async (userId, newRoles) => {
+    try {
+      await api.put(`/api/admin/users/${userId}/roles`, { roles: newRoles });
+      fetchUsers(); // Refresh list
+    } catch (err) {
+      console.error('Failed to update role:', err);
+    }
+  };
+
+  const getInitials = (name) => {
+    if (!name) return "?";
+    return name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+  };
+
+  const handleLogout = () => { logout(); navigate('/'); };
 
   return (
     <>
@@ -998,11 +1037,15 @@ export default function AdminDashboard() {
         </nav>
 
         <div className="sidebar-footer">
-          <div className="admin-profile">
-            <div className="profile-avatar">SA</div>
+          <div className="admin-profile" onClick={handleLogout} title="Sign out">
+            <div className="profile-avatar" style={{ overflow: 'hidden' }}>
+              {user?.picture
+                ? <img src={user.picture} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : getInitials(user?.name)}
+            </div>
             <div className="profile-info">
-              <div className="profile-name">System Admin</div>
-              <div className="profile-email">admin@sliit.lk</div>
+              <div className="profile-name">{user?.name || 'Admin'}</div>
+              <div className="profile-email">{user?.email || '—'}</div>
             </div>
           </div>
         </div>
@@ -1339,6 +1382,86 @@ export default function AdminDashboard() {
               </tbody>
             </table>
           </div>
+        </div>
+
+        {/* Users & Roles Management */}
+        <div className="card fade-in" style={{ marginBottom: "20px" }}>
+          <div className="card-header">
+            <div>
+              <div className="card-title"><span className="card-title-icon">👥</span> Users & Roles</div>
+              <div className="card-subtitle">Manage platform users and their permissions</div>
+            </div>
+            <button className="card-action" onClick={fetchUsers}>Refresh →</button>
+          </div>
+          {usersLoading ? (
+            <div style={{ padding: '32px 22px', textAlign: 'center', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: '12px' }}>
+              Loading users...
+            </div>
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Email</th>
+                    <th>Current Roles</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allUsers.map(u => (
+                    <tr key={u.id}>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <div style={{
+                            width: '30px', height: '30px', borderRadius: '50%',
+                            background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontFamily: 'var(--font-display)', fontSize: '10px', fontWeight: 700, color: 'var(--accent-fg)',
+                            overflow: 'hidden', flexShrink: 0,
+                          }}>
+                            {u.picture
+                              ? <img src={u.picture} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              : getInitials(u.name)}
+                          </div>
+                          <span>{u.name}</span>
+                        </div>
+                      </td>
+                      <td style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>{u.email}</td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                          {u.roles?.map(r => (
+                            <span key={r} className={`badge ${r === 'ROLE_ADMIN' ? 'open' : r === 'ROLE_TECHNICIAN' ? 'progress' : 'active'}`}>
+                              {r.replace('ROLE_', '')}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          {!u.roles?.includes('ROLE_ADMIN') && (
+                            <button className="approve-btn" onClick={() => handleRoleChange(u.id, [...(u.roles || []), 'ROLE_ADMIN'])} title="Promote to Admin">
+                              +Admin
+                            </button>
+                          )}
+                          {!u.roles?.includes('ROLE_TECHNICIAN') && (
+                            <button className="approve-btn" style={{ background: 'var(--status-amber-bg)', color: 'var(--status-amber)', borderColor: 'var(--status-amber-bg)' }}
+                              onClick={() => handleRoleChange(u.id, [...(u.roles || []), 'ROLE_TECHNICIAN'])} title="Assign Technician">
+                              +Tech
+                            </button>
+                          )}
+                          {u.roles?.length > 1 && (
+                            <button className="reject-btn" onClick={() => handleRoleChange(u.id, ['ROLE_USER'])} title="Reset to User only">
+                              Reset
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* Quick Actions */}

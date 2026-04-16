@@ -1,4 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 // ─── Theme Definitions ────────────────────────────────────────────────────────
 // All color/token values live here. No hardcoded colors elsewhere in components.
@@ -889,9 +891,23 @@ function useTheme() {
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function HomePage() {
   const { theme } = useTheme();
+  const { user, isAuthenticated, logout, hasRole } = useAuth();
+  const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [activeRole, setActiveRole] = useState("admin");
   const [counter, setCounter] = useState({ bookings: 0, assets: 0, incidents: 0, uptime: 0 });
+
+  // Navigate to the appropriate dashboard based on user role
+  const goToDashboard = () => {
+    if (hasRole('ROLE_ADMIN')) navigate('/admin');
+    else if (hasRole('ROLE_TECHNICIAN')) navigate('/technician');
+    else navigate('/dashboard');
+  };
+
+  // Initiate Google OAuth sign-in (redirect to backend)
+  const handleSignIn = () => {
+    window.location.href = 'http://localhost:8081/oauth2/authorization/google';
+  };
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -919,7 +935,6 @@ export default function HomePage() {
   }, []);
 
   const currentRole = roles.find(r => r.id === activeRole);
-  const toggleMeta  = themes[theme];
 
   return (
     <>
@@ -938,8 +953,38 @@ export default function HomePage() {
           <li><a href="#">Reports</a></li>
         </ul>
         <div className="nav-right">
-          <button className="btn-ghost">Sign In</button>
-          <button className="btn-primary">Get Started</button>
+          {isAuthenticated ? (
+            <>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '10px',
+                padding: '5px 14px 5px 5px',
+                background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                borderRadius: '100px', cursor: 'pointer',
+              }} onClick={goToDashboard}>
+                <div style={{
+                  width: '28px', height: '28px', borderRadius: '50%',
+                  background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontFamily: 'var(--font-display)', fontSize: '11px', fontWeight: 700, color: 'var(--accent-fg)',
+                  overflow: 'hidden',
+                }}>
+                  {user?.picture
+                    ? <img src={user.picture} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : (user?.name?.charAt(0) || 'U')}
+                </div>
+                <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)' }}>
+                  {user?.name?.split(' ')[0] || 'Dashboard'}
+                </span>
+              </div>
+              <button className="btn-ghost" onClick={() => { logout(); }}>Sign Out</button>
+            </>
+          ) : (
+            <>
+              <button className="btn-ghost" onClick={handleSignIn}>
+                <span style={{ marginRight: '6px' }}>🔑</span> Sign In with Google
+              </button>
+              <button className="btn-primary" onClick={handleSignIn}>Get Started</button>
+            </>
+          )}
         </div>
       </nav>
 
@@ -965,8 +1010,16 @@ export default function HomePage() {
         </p>
 
         <div className="hero-actions">
-          <button className="btn-primary btn-lg">Request Access</button>
-          <button className="btn-ghost btn-lg">Watch Demo →</button>
+          {isAuthenticated ? (
+            <button className="btn-primary btn-lg" onClick={goToDashboard}>Go to Dashboard →</button>
+          ) : (
+            <>
+              <button className="btn-primary btn-lg" onClick={handleSignIn}>
+                <span style={{ marginRight: '8px' }}>🔑</span> Sign In with Google
+              </button>
+              <button className="btn-ghost btn-lg" onClick={handleSignIn}>Request Access</button>
+            </>
+          )}
         </div>
 
         <div className="hero-stats">
@@ -1181,7 +1234,13 @@ export default function HomePage() {
             Set up takes under 10 minutes.
           </p>
           <div className="cta-buttons">
-            <button className="btn-primary btn-lg">Request Access</button>
+            {isAuthenticated ? (
+              <button className="btn-primary btn-lg" onClick={goToDashboard}>Open Dashboard</button>
+            ) : (
+              <button className="btn-primary btn-lg" onClick={handleSignIn}>
+                <span style={{ marginRight: '8px' }}>🔑</span> Sign In with Google
+              </button>
+            )}
             <button className="btn-ghost btn-lg">View Documentation</button>
           </div>
         </div>
