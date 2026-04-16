@@ -7,6 +7,13 @@ import com.smartfacility.app.incidentservice.enums.Category;
 import com.smartfacility.app.incidentservice.enums.Priority;
 import com.smartfacility.app.incidentservice.enums.TicketStatus;
 
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
+
+@Setter
+@Getter
+@Builder
 public class TicketResponseDTO {
     private Long id;
     private String resourceLocation;
@@ -22,5 +29,5 @@ public class TicketResponseDTO {
     private LocalDateTime updatedAt;
     private List<AttachmentResponseDTO> attachments;
     private List<CommentResponseDTO> comments;
-    
+
 }
