@@ -7,6 +7,8 @@ import UserDashboard from "./pages/UserDashboard";
 import TechnicianDashboard from "./pages/TechnicianDashboard";
 import OAuthCallback from "./pages/OAuthCallback";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
+import LectureDashboard from "./pages/Lecturerdashboard";
+import StudentDashboard from "./pages/Studentdashboard";
 
 function App() {
   return (
