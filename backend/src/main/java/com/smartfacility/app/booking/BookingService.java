@@ -4,6 +4,9 @@ import com.smartfacility.app.booking.dto.BookingRequestDTO;
 import com.smartfacility.app.booking.dto.BookingResponseDTO;
 import com.smartfacility.app.booking.dto.BookingUpdateDTO;
 import com.smartfacility.app.model.Facility;
+import com.smartfacility.app.notification.NotificationService;
+import com.smartfacility.app.notification.NotificationType;
+import com.smartfacility.app.notification.ReferenceType;
 import com.smartfacility.app.repository.FacilityRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -17,10 +20,14 @@ public class BookingService {
 
     private final BookingRepository bookingRepository;
     private final FacilityRepository facilityRepository;
+    private final NotificationService notificationService;
 
-    public BookingService(BookingRepository bookingRepository, FacilityRepository facilityRepository) {
+    public BookingService(BookingRepository bookingRepository,
+                          FacilityRepository facilityRepository,
+                          NotificationService notificationService) {
         this.bookingRepository = bookingRepository;
         this.facilityRepository = facilityRepository;
+        this.notificationService = notificationService;
     }
 
     public List<BookingResponseDTO> getMyBookings(String userEmail) {
@@ -88,6 +95,32 @@ public class BookingService {
         }
         booking.setStatus(BookingStatus.CANCELLED);
         bookingRepository.save(booking);
+    }
+
+    /**
+     * Helper: send a notification whenever the booking status is changed.
+     * Other services (e.g. admin approve/reject) can call this after updating
+     * the booking status so the booking creator gets notified.
+     */
+    public void notifyBookingStatusChange(Booking booking) {
+        BookingStatus status = booking.getStatus();
+        if (status == BookingStatus.APPROVED || status == BookingStatus.REJECTED) {
+            NotificationType type = (status == BookingStatus.APPROVED)
+                    ? NotificationType.BOOKING_APPROVED
+                    : NotificationType.BOOKING_REJECTED;
+            String title = (status == BookingStatus.APPROVED) ? "Booking Approved" : "Booking Rejected";
+            String facilityName = booking.getFacility() != null ? booking.getFacility().getName() : "Facility";
+            String message = "Your booking for " + facilityName + " has been " + status.name().toLowerCase() + ".";
+
+            notificationService.create(
+                    booking.getUserEmail(),
+                    type,
+                    title,
+                    message,
+                    ReferenceType.BOOKING,
+                    booking.getId()
+            );
+        }
     }
 
     private BookingResponseDTO toDto(Booking booking) {
