@@ -65,7 +65,7 @@ public class CommentService {
     }
     public List<CommentResponseDTO> getCommentsByTicket(Long ticketId) {
         ticketService.findTicketOrThrow(ticketId);
-        return commentRepository.findByTicketOrderByCreatedAtAsc(ticketId)
+        return commentRepository.findByTicketIdOrderByCreatedAtAsc(ticketId)
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
