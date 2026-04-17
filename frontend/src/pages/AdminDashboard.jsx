@@ -33,6 +33,7 @@ const themes = {
     "--shadow-frame":      "0 60px 120px -20px rgba(0,0,0,0.6)",
     "--shadow-card":       "0 4px 24px rgba(0,0,0,0.3)",
     "--toggle-icon":       "☀️",
+    "--toggle-label":      "Switch to light mode",
   },
   light: {
     "--bg-base":           "#f5f7fa",
@@ -62,6 +63,7 @@ const themes = {
     "--shadow-frame":      "0 40px 80px -20px rgba(0,0,0,0.15)",
     "--shadow-card":       "0 2px 12px rgba(0,0,0,0.08)",
     "--toggle-icon":       "🌙",
+    "--toggle-label":      "Switch to dark mode",
   },
 };
 
@@ -898,8 +900,7 @@ function useTheme() {
     mq.addEventListener?.("change", h) ?? mq.addListener?.(h);
     return () => mq.removeEventListener?.("change", h) ?? mq.removeListener?.(h);
   }, []);
-  const toggle = useCallback(() => setTheme(t => t === "dark" ? "light" : "dark"), []);
-  return { theme, toggle };
+  return { theme };
 }
 
 // ─── Counter hook ─────────────────────────────────────────────────────────────
@@ -1070,9 +1071,6 @@ export default function AdminDashboard() {
             <span className="notif-dot" />
           </button>
           <button className="icon-btn" title="Help">❓</button>
-          <button className="theme-toggle" onClick={toggle} title="Toggle theme">
-            {themes[theme]["--toggle-icon"]}
-          </button>
         </div>
       </header>
 
