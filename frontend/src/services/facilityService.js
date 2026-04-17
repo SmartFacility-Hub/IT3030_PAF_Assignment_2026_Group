@@ -1,6 +1,17 @@
 import api from "./api";
 
+// BACKEND: GET /api/facilities — FacilityController.getAllFacilities()
+// CONNECTS TO: FacilityController.java → FacilityService.java
+export const getAllFacilities = () => api.get("/api/facilities");
+
+// BACKEND: GET /api/facilities/{id} — FacilityController.getFacilityById()
+// CONNECTS TO: FacilityController.java → FacilityService.java
+export const getFacilityById = (id) => api.get(`/api/facilities/${id}`);
+
 const facilityService = {
+  // Named exports above (also available here for backward compatibility)
+  getAllFacilities,
+  getFacilityById,
 
   getAll: (filters = {}) => {
     const params = new URLSearchParams();
