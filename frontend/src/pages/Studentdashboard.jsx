@@ -1,5 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import BookingStatusBadge from "../components/BookingStatusBadge";
+import { getMyBookings, cancelBooking } from "../services/bookingService";
 
 const styles = `
   .page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 32px; gap: 16px; }
@@ -225,14 +228,72 @@ function useCounter(targets, duration = 1400) {
       if (p < 1) requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
-  }, []);
+  }, [duration, targets]);
   return vals;
 }
 
 export default function StudentDashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [reportForm, setReportForm] = useState({ title: "", location: "", priority: "Medium", desc: "" });
-  const kpi = useCounter({ bookings: 12, upcoming: 4, incidents: 3, hours: 28 });
+  const [bookings, setBookings] = useState([]);
+  const [bookingsLoading, setBookingsLoading] = useState(false);
+  const [bookingsError, setBookingsError] = useState("");
+  const [cancellingId, setCancellingId] = useState(null);
+
+  const fetchBookings = useCallback(async () => {
+    setBookingsLoading(true);
+    setBookingsError("");
+    try {
+      // BACKEND: GET /api/bookings/my — BookingController.getMyBookings()
+      // CONNECTS TO: BookingController.java → BookingServiceImpl.java
+      const res = await getMyBookings();
+      console.log("[StudentDashboard] my bookings response:", res?.data);
+      setBookings(Array.isArray(res?.data) ? res.data : []);
+    } catch (err) {
+      setBookings([]);
+      const msg = err?.response?.data?.message || err?.message || "Failed to load your bookings.";
+      setBookingsError(msg);
+    } finally {
+      setBookingsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchBookings();
+  }, [fetchBookings]);
+
+  const stats = useMemo(() => {
+    const normalized = (bookings || []).map((b) => ({
+      ...b,
+      status: (b?.status || "").toString().toUpperCase(),
+    }));
+    return {
+      total: normalized.length,
+      pending: normalized.filter((b) => b.status === "PENDING").length,
+      approved: normalized.filter((b) => b.status === "APPROVED").length,
+      cancelled: normalized.filter((b) => b.status === "CANCELLED").length,
+      recent3: normalized.slice(0, 3),
+    };
+  }, [bookings]);
+
+  const kpi = useCounter({ bookings: stats.total, upcoming: stats.pending + stats.approved, incidents: 3, hours: 28 });
+
+  const handleCancel = useCallback(async (id) => {
+    if (id == null) return;
+    setCancellingId(id);
+    try {
+      // BACKEND: PUT /api/bookings/{id}/cancel — BookingController.cancelBooking()
+      // CONNECTS TO: BookingController.java → BookingServiceImpl.java
+      await cancelBooking(id);
+      await fetchBookings();
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.message || "Failed to cancel booking.";
+      setBookingsError(msg);
+    } finally {
+      setCancellingId(null);
+    }
+  }, [fetchBookings]);
 
   const getInitials = (name) =>
     name ? name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase() : "?";
@@ -255,16 +316,16 @@ export default function StudentDashboard() {
           <div className="welcome-sub">You have <strong>2 upcoming bookings</strong> this week and <strong>1 open incident</strong>. Have a productive day!</div>
         </div>
         <div className="welcome-actions">
-          <button className="btn-ghost">📅 View Schedule</button>
-          <button className="btn-primary">＋ Book a Room</button>
+          <button className="btn-ghost" onClick={() => navigate("/bookings/my")}>📅 View All My Bookings</button>
+          <button className="btn-primary" onClick={() => navigate("/bookings/new")}>＋ New Booking</button>
         </div>
       </div>
 
       {/* KPI Row */}
       <div className="kpi-grid">
         {[
-          { icon: "📅", label: "Total Bookings", value: kpi.bookings,  change: "This semester", up: null,  sub: "All time" },
-          { icon: "⏰", label: "Upcoming",        value: kpi.upcoming,  change: "Next 7 days",   up: null,  sub: "Confirmed + pending" },
+          { icon: "📅", label: "Total Bookings", value: kpi.bookings,  change: "All time",      up: null,  sub: "Your booking requests" },
+          { icon: "⏰", label: "Pending + Approved", value: kpi.upcoming, change: "Active",      up: null,  sub: "Needs attention / upcoming" },
           { icon: "🔧", label: "My Incidents",   value: kpi.incidents, change: "1 open",        up: false, sub: "Submitted reports" },
           { icon: "🏛️", label: "Hours Booked",  value: kpi.hours,     change: "+4 this week",  up: true,  sub: "Facility hours used" },
         ].map((k, i) => (
@@ -280,6 +341,13 @@ export default function StudentDashboard() {
         ))}
       </div>
 
+      <div style={{ margin: "0 0 18px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", fontSize: 12 }}>
+        Total: <strong style={{ color: "var(--text-primary)" }}>{stats.total}</strong> &nbsp;|&nbsp; Pending:{" "}
+        <strong style={{ color: "var(--text-primary)" }}>{stats.pending}</strong> &nbsp;|&nbsp; Approved:{" "}
+        <strong style={{ color: "var(--text-primary)" }}>{stats.approved}</strong> &nbsp;|&nbsp; Cancelled:{" "}
+        <strong style={{ color: "var(--text-primary)" }}>{stats.cancelled}</strong>
+      </div>
+
       {/* Row 1: Calendar + Notifications */}
       <div className="content-grid fade-in-2">
         <div className="card">
@@ -288,7 +356,7 @@ export default function StudentDashboard() {
               <div className="card-title"><span>📅</span> Upcoming Bookings</div>
               <div className="card-subtitle">Your confirmed & pending reservations</div>
             </div>
-            <button className="card-action">All bookings →</button>
+            <button className="card-action" onClick={() => navigate("/bookings/my")}>All bookings →</button>
           </div>
           <div style={{ padding: "16px 22px 12px" }}>
             <div className="calendar-strip">
@@ -302,25 +370,52 @@ export default function StudentDashboard() {
             </div>
           </div>
           <div className="booking-list">
-            {upcomingBookings.map((b, i) => (
-              <div className="booking-item" key={i}>
-                <div className="booking-time-col">
-                  <div className="booking-time">{b.time}</div>
-                  <div className="booking-date">{b.date}</div>
-                </div>
-                <div className="booking-bar" style={{ background: b.color }} />
-                <div className="booking-body">
-                  <div className="booking-title">{b.title}</div>
-                  <div className="booking-meta">{b.meta}</div>
-                </div>
-                <div className="booking-status-col">
-                  <span className={`badge ${b.status}`}>
-                    <span className="badge-dot" style={{ background: b.color }} />
-                    {b.status.charAt(0).toUpperCase() + b.status.slice(1)}
-                  </span>
-                </div>
+            {bookingsLoading ? (
+              <div style={{ padding: "16px 22px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", fontSize: "12px" }}>
+                Loading your bookings...
               </div>
-            ))}
+            ) : bookingsError ? (
+              <div style={{ padding: "16px 22px", color: "var(--status-red)", fontFamily: "var(--font-mono)", fontSize: "12px" }}>
+                {bookingsError}
+              </div>
+            ) : stats.recent3.length === 0 ? (
+              <div style={{ padding: "16px 22px", color: "var(--text-muted)", fontFamily: "var(--font-mono)", fontSize: "12px" }}>
+                No bookings yet. Click “＋ New Booking” to create one.
+              </div>
+            ) : (
+              stats.recent3.map((b) => {
+                const status = (b?.status || "").toString().toUpperCase();
+                const showCancel = status === "PENDING" || status === "APPROVED";
+                return (
+                  <div className="booking-item" key={b.id}>
+                    <div className="booking-time-col">
+                      <div className="booking-time">{b.startTime || "—"}</div>
+                      <div className="booking-date">{b.bookingDate || "—"}</div>
+                    </div>
+                    <div className="booking-bar" style={{ background: "var(--status-blue)" }} />
+                    <div className="booking-body">
+                      <div className="booking-title">{b.resourceName || `Resource #${b.resourceId ?? "—"}`}</div>
+                      <div className="booking-meta" title={b.purpose}>
+                        {(b.startTime || "—")} – {(b.endTime || "—")} · {b.purpose && b.purpose.length > 25 ? b.purpose.substring(0, 25) + '...' : (b.purpose || "No purpose")}
+                      </div>
+                    </div>
+                    <div className="booking-status-col" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <BookingStatusBadge status={b.status} />
+                      {showCancel && (
+                        <button
+                          className="btn-ghost"
+                          style={{ padding: "4px 10px", fontSize: 11, background: "var(--status-red-bg)", color: "var(--status-red)", borderColor: "var(--status-red-bg)" }}
+                          onClick={() => handleCancel(b.id)}
+                          disabled={cancellingId === b.id}
+                        >
+                          {cancellingId === b.id ? "Cancelling..." : (status === "PENDING" ? "Cancel Request" : "Cancel")}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
 
@@ -438,7 +533,7 @@ export default function StudentDashboard() {
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button className="btn-ghost">Filter</button>
-            <button className="btn-primary">＋ New Booking</button>
+            <button className="btn-primary" onClick={() => navigate("/bookings/new")}>＋ New Booking</button>
           </div>
         </div>
         <div className="table-wrap">
@@ -447,36 +542,38 @@ export default function StudentDashboard() {
               <tr><th>Booking ID</th><th>Resource</th><th>Date</th><th>Time Slot</th><th>Purpose</th><th>Status</th><th>Action</th></tr>
             </thead>
             <tbody>
-              {[
-                { id: "BK-1043", resource: "Computer Lab 2",  date: "8 Apr",  time: "09:00–11:00", purpose: "Group Study",       status: "approved" },
-                { id: "BK-1044", resource: "Study Room 4",    date: "10 Apr", time: "14:00–15:30", purpose: "Project Meeting",   status: "pending"  },
-                { id: "BK-1045", resource: "Seminar Room A",  date: "14 Apr", time: "10:00–12:00", purpose: "Presentation Prep", status: "approved" },
-                { id: "BK-1046", resource: "Computer Lab 1",  date: "16 Apr", time: "15:00–16:00", purpose: "Assignment",        status: "pending"  },
-                { id: "BK-1037", resource: "Auditorium",       date: "5 Apr",  time: "09:00–13:00", purpose: "Club Event",        status: "rejected" },
-                { id: "BK-1029", resource: "Study Room 2",    date: "1 Apr",  time: "13:00–14:00", purpose: "Group Study",       status: "approved" },
-              ].map(b => (
+              {(bookingsLoading ? [] : bookings).map((b) => {
+                const status = (b?.status || "").toString().toLowerCase();
+                const isCancelable = status === "pending" || status === "approved";
+                return (
                 <tr key={b.id}>
                   <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{b.id}</td>
-                  <td>{b.resource}</td>
-                  <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{b.date}</td>
-                  <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{b.time}</td>
-                  <td style={{ color: "var(--text-muted)", fontSize: 12 }}>{b.purpose}</td>
+                  <td>{b.resourceName || `Resource #${b.resourceId ?? "—"}`}</td>
+                  <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{b.bookingDate || "—"}</td>
+                  <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{(b.startTime || "—") + "–" + (b.endTime || "—")}</td>
+                  <td style={{ color: "var(--text-muted)", fontSize: 12 }}>{b.purpose || "—"}</td>
                   <td>
-                    <span className={`badge ${b.status}`}>
-                      <span className="badge-dot" style={{
-                        background: b.status === "approved" ? "var(--status-green)" : b.status === "pending" ? "var(--status-amber)" : "var(--status-red)"
-                      }} />
-                      {b.status.charAt(0).toUpperCase() + b.status.slice(1)}
-                    </span>
+                    <BookingStatusBadge status={b.status} />
                   </td>
                   <td>
-                    {b.status === "pending" || b.status === "approved"
-                      ? <button className="btn-ghost" style={{ padding: "4px 10px", fontSize: 11 }}>Cancel</button>
-                      : <button className="card-action" style={{ fontSize: 11 }}>View →</button>
-                    }
+                    {isCancelable ? (
+                      <button
+                        className="btn-ghost"
+                        style={{ padding: "4px 10px", fontSize: 11 }}
+                        onClick={() => handleCancel(b.id)}
+                        disabled={cancellingId === b.id}
+                      >
+                        {cancellingId === b.id ? "Cancelling..." : "Cancel"}
+                      </button>
+                    ) : (
+                      <button className="card-action" style={{ fontSize: 11 }} onClick={() => navigate(`/bookings/${b.id}`)}>
+                        View →
+                      </button>
+                    )}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
