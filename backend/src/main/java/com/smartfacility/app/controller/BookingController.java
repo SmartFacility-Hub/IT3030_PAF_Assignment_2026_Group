@@ -3,6 +3,9 @@ package com.smartfacility.app.controller;
 import com.smartfacility.app.dto.BookingRequestDTO;
 import com.smartfacility.app.dto.BookingResponseDTO;
 import com.smartfacility.app.service.BookingService;
+import com.smartfacility.app.model.User;
+import com.smartfacility.app.repository.UserRepository;
+import org.springframework.security.core.Authentication;
 
 import jakarta.validation.Valid;
 import java.time.LocalDate;
@@ -28,14 +31,19 @@ import org.springframework.web.bind.annotation.RestController;
 public class BookingController {
 
     private final BookingService bookingService;
+    private final UserRepository userRepository;
 
     // ENDPOINT: POST /api/bookings
     // ACCESS: Authenticated users
     // CONNECTS TO: BookingService.createBooking()
     @PostMapping
-    public ResponseEntity<BookingResponseDTO> createBooking(@Valid @RequestBody BookingRequestDTO dto) {
-        String userId = "user-001";
-        String userName = "Test User";
+    public ResponseEntity<BookingResponseDTO> createBooking(@Valid @RequestBody BookingRequestDTO dto, Authentication authentication) {
+        String email = (String) authentication.getPrincipal();
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
+        
+        String userId = String.valueOf(user.getId());
+        String userName = user.getName();
+        
         BookingResponseDTO response = bookingService.createBooking(dto, userId, userName);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -44,8 +52,10 @@ public class BookingController {
     // ACCESS: Authenticated users
     // CONNECTS TO: BookingService.getMyBookings()
     @GetMapping("/my")
-    public ResponseEntity<List<BookingResponseDTO>> getMyBookings() {
-        String userId = "user-001";
+    public ResponseEntity<List<BookingResponseDTO>> getMyBookings(Authentication authentication) {
+        String email = (String) authentication.getPrincipal();
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
+        String userId = String.valueOf(user.getId());
         return ResponseEntity.ok(bookingService.getMyBookings(userId));
     }
 
@@ -96,8 +106,10 @@ public class BookingController {
     // ACCESS: Authenticated users
     // CONNECTS TO: BookingService.cancelBooking()
     @PutMapping("/{id}/cancel")
-    public ResponseEntity<BookingResponseDTO> cancelBooking(@PathVariable Long id) {
-        String userId = "user-001";
+    public ResponseEntity<BookingResponseDTO> cancelBooking(@PathVariable Long id, Authentication authentication) {
+        String email = (String) authentication.getPrincipal();
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
+        String userId = String.valueOf(user.getId());
         return ResponseEntity.ok(bookingService.cancelBooking(id, userId));
     }
 }
