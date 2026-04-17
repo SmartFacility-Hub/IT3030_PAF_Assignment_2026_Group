@@ -1,10 +1,4 @@
-import axios from 'axios';
-
-const api = axios.create({
-  baseURL: '', // empty — uses proxy to localhost:8081
-  headers: { 'Content-Type': 'application/json' },
-  withCredentials: false, // no auth for now
-});
+import api from './api';
 
 // BACKEND: POST /api/bookings — BookingController.createBooking()
 export const createBooking = (data) => api.post('/api/bookings', data);
