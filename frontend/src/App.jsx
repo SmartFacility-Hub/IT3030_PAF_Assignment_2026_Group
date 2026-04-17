@@ -2,8 +2,6 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminLayout from "./components/AdminLayout";
-import StudentLayout from "./components/StudentLayout";
-import LecturerLayout from "./components/LecturerLayout";
 import HomePage from "./pages/HomePage";
 import AdminDashboard from "./pages/AdminDashboard";
 import UserDashboard from "./pages/UserDashboard";
@@ -11,8 +9,6 @@ import TechnicianDashboard from "./pages/TechnicianDashboard";
 import OAuthCallback from "./pages/OAuthCallback";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
 import FacilitiesPage from "./pages/FacilitiesPage";
-import StudentDashboard from "./pages/Studentdashboard";
-import LecturerDashboard from "./pages/Lecturerdashboard";
 
 function App() {
   return (
@@ -42,24 +38,6 @@ function App() {
           }>
             <Route index element={<AdminDashboard />} />
             <Route path="facilities" element={<FacilitiesPage />} />
-          </Route>
-
-          {/* ── STUDENT (static sidebar via StudentLayout) ── */}
-          <Route path="/student" element={
-            <ProtectedRoute requiredRole="ROLE_STUDENT">
-              <StudentLayout />
-            </ProtectedRoute>
-          }>
-            <Route index element={<StudentDashboard />} />
-          </Route>
-
-          {/* ── LECTURER (static sidebar via LecturerLayout) ── */}
-          <Route path="/lecturer" element={
-            <ProtectedRoute requiredRole="ROLE_LECTURER">
-              <LecturerLayout />
-            </ProtectedRoute>
-          }>
-            <Route index element={<LecturerDashboard />} />
           </Route>
 
         </Routes>

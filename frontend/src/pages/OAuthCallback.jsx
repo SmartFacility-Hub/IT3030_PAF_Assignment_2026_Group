@@ -26,10 +26,6 @@ export default function OAuthCallback() {
             navigate('/admin', { replace: true });
           } else if (roles.includes('ROLE_TECHNICIAN')) {
             navigate('/technician', { replace: true });
-          } else if (roles.includes('ROLE_LECTURER')) {
-            navigate('/lecturer', { replace: true });
-          } else if (roles.includes('ROLE_STUDENT')) {
-            navigate('/student', { replace: true });
           } else {
             navigate('/dashboard', { replace: true });
           }
