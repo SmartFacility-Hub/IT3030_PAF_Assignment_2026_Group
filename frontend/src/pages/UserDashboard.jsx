@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import api, { ticketApi, bookingApi, API_BASE_URL } from "../services/api";
-import facilityService from "../services/facilityService";
+import { ticketApi, API_BASE_URL } from "../services/api";
 
 // ─── Theme Definitions ────────────────────────────────────────────────────────
 const themes = {
@@ -122,59 +121,6 @@ const styles = `
     color: var(--text-primary); margin-bottom: 6px;
   }
   .ud-subtitle { font-size: 15px; color: var(--text-muted); margin-bottom: 40px; }
-
-  /* ── Section Tabs ── */
-  .ud-tabs {
-    display: flex; gap: 10px; flex-wrap: wrap;
-    margin: 18px 0 26px;
-  }
-  .ud-tab {
-    padding: 7px 14px;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    background: transparent;
-    color: var(--text-muted);
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .ud-tab:hover { border-color: var(--accent-border); color: var(--text-primary); }
-  .ud-tab.active { border-color: var(--accent-border); background: var(--accent-glow); color: var(--accent); }
-
-  /* ── Simple card wrapper ── */
-  .ud-card {
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-    margin-bottom: 32px;
-  }
-  .ud-card-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 18px 22px; border-bottom: 1px solid var(--border);
-  }
-  .ud-card-title {
-    font-family: var(--font-display); font-size: 15px; font-weight: 700;
-    color: var(--text-primary); display: flex; align-items: center; gap: 8px;
-  }
-
-  /* ── Notifications ── */
-  .ud-notifs { padding: 18px 22px; display: flex; flex-direction: column; gap: 10px; }
-  .ud-notif {
-    display: flex; gap: 12px; align-items: flex-start;
-    padding: 12px 14px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    background: var(--bg-elevated);
-  }
-  .ud-notif.unread { border-color: var(--accent-border); box-shadow: 0 0 0 3px var(--accent-glow) inset; }
-  .ud-notif-icon { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-  .ud-notif-title { font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 2px; }
-  .ud-notif-text { font-size: 13px; color: var(--text-secondary); line-height: 1.45; }
-  .ud-notif-time { margin-top: 6px; font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); }
 
   .ud-profile-section {
     background: var(--bg-surface); border: 1px solid var(--border);
@@ -435,184 +381,6 @@ function formatDate(iso) {
 function formatTime(iso) {
   if (!iso) return "";
   return new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
-}
-function formatDateTime(iso) {
-  if (!iso) return "—";
-  return `${formatDate(iso)} ${formatTime(iso)}`;
-}
-function toLocalDateTimePayload(value) {
-  if (!value) return null;
-  // datetime-local gives "YYYY-MM-DDTHH:mm" (no timezone). Backend expects LocalDateTime.
-  return value.length === 16 ? `${value}:00` : value;
-}
-
-// ─── Booking Modals ───────────────────────────────────────────────────────────
-function CreateBookingModal({ onClose, onCreated }) {
-  const [facilities, setFacilities] = useState([]);
-  const [loadingFacilities, setLoadingFacilities] = useState(true);
-  const [form, setForm] = useState({
-    facilityId: "",
-    startAt: "",
-    endAt: "",
-    purpose: "",
-  });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        setLoadingFacilities(true);
-        const res = await facilityService.getAll({ status: "ACTIVE" });
-        if (mounted) setFacilities(res.data || []);
-      } catch (_) {
-        if (mounted) setFacilities([]);
-      } finally {
-        if (mounted) setLoadingFacilities(false);
-      }
-    })();
-    return () => { mounted = false; };
-  }, []);
-
-  const handleField = (e) => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    if (!form.facilityId) { setError("Please select a facility."); return; }
-    if (!form.startAt || !form.endAt) { setError("Please select start and end time."); return; }
-    setSaving(true);
-    try {
-      await bookingApi.create({
-        facilityId: Number(form.facilityId),
-        startAt: toLocalDateTimePayload(form.startAt),
-        endAt: toLocalDateTimePayload(form.endAt),
-        purpose: form.purpose?.trim() || null,
-      });
-      onCreated();
-    } catch (err) {
-      setError(err.response?.data?.message || err.response?.data?.error || "Failed to create booking.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="ud-modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="ud-modal">
-        <div className="ud-modal-title">📅 Create Booking</div>
-        {error && <div className="ud-error">{error}</div>}
-        <form onSubmit={handleSubmit}>
-          <div className="ud-form-group">
-            <label className="ud-label">Facility *</label>
-            <select className="ud-select" name="facilityId" value={form.facilityId} onChange={handleField} required>
-              <option value="" disabled>
-                {loadingFacilities ? "Loading facilities…" : "Select a facility"}
-              </option>
-              {facilities.map(f => (
-                <option key={f.id} value={f.id}>
-                  {f.name} — {f.type} — {f.location}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <div className="ud-form-group">
-              <label className="ud-label">Start *</label>
-              <input className="ud-input" type="datetime-local" name="startAt" value={form.startAt} onChange={handleField} required />
-            </div>
-            <div className="ud-form-group">
-              <label className="ud-label">End *</label>
-              <input className="ud-input" type="datetime-local" name="endAt" value={form.endAt} onChange={handleField} required />
-            </div>
-          </div>
-
-          <div className="ud-form-group">
-            <label className="ud-label">Purpose (optional)</label>
-            <input className="ud-input" name="purpose" placeholder="e.g. Group study / Lab practice"
-              value={form.purpose} onChange={handleField} />
-          </div>
-
-          <div className="ud-modal-footer">
-            <button type="button" className="ud-btn-ghost" onClick={onClose}>Cancel</button>
-            <button type="submit" className="ud-btn-primary" disabled={saving || loadingFacilities}>
-              {saving ? "Creating…" : "Create Booking"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-function EditBookingModal({ booking, onClose, onSaved }) {
-  const [form, setForm] = useState(() => ({
-    startAt: booking?.startAt ? String(booking.startAt).slice(0, 16) : "",
-    endAt: booking?.endAt ? String(booking.endAt).slice(0, 16) : "",
-    purpose: booking?.purpose || "",
-  }));
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-
-  const handleField = (e) => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    if (!form.startAt || !form.endAt) { setError("Please select start and end time."); return; }
-    setSaving(true);
-    try {
-      await bookingApi.update(booking.id, {
-        startAt: toLocalDateTimePayload(form.startAt),
-        endAt: toLocalDateTimePayload(form.endAt),
-        purpose: form.purpose?.trim() || null,
-      });
-      onSaved();
-    } catch (err) {
-      setError(err.response?.data?.message || err.response?.data?.error || "Failed to update booking.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="ud-modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="ud-modal">
-        <div className="ud-modal-title">✏️ Update Booking</div>
-        {error && <div className="ud-error">{error}</div>}
-        <form onSubmit={handleSubmit}>
-          <div className="ud-form-group">
-            <label className="ud-label">Facility</label>
-            <div className="ud-input" style={{ display: "flex", alignItems: "center" }}>
-              {booking.facilityName} — {booking.facilityType} — {booking.location}
-            </div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <div className="ud-form-group">
-              <label className="ud-label">Start *</label>
-              <input className="ud-input" type="datetime-local" name="startAt" value={form.startAt} onChange={handleField} required />
-            </div>
-            <div className="ud-form-group">
-              <label className="ud-label">End *</label>
-              <input className="ud-input" type="datetime-local" name="endAt" value={form.endAt} onChange={handleField} required />
-            </div>
-          </div>
-          <div className="ud-form-group">
-            <label className="ud-label">Purpose (optional)</label>
-            <input className="ud-input" name="purpose" value={form.purpose} onChange={handleField} />
-          </div>
-          <div className="ud-modal-footer">
-            <button type="button" className="ud-btn-ghost" onClick={onClose}>Cancel</button>
-            <button type="submit" className="ud-btn-primary" disabled={saving}>
-              {saving ? "Saving…" : "Save Changes"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
 }
 
 // ─── Create Ticket Modal ───────────────────────────────────────────────────────
@@ -921,14 +689,6 @@ export default function UserDashboard() {
   const { theme, toggle } = useTheme();
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState("BOOKINGS"); // BOOKINGS | TICKETS | NOTIFICATIONS | PROFILE
-
-  // Bookings
-  const [bookings, setBookings] = useState([]);
-  const [bookingsLoading, setBookingsLoading] = useState(true);
-  const [showCreateBooking, setShowCreateBooking] = useState(false);
-  const [editingBooking, setEditingBooking] = useState(null);
-
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("ALL");
@@ -945,16 +705,7 @@ export default function UserDashboard() {
     } catch (_) {} finally { setLoading(false); }
   }, [filter]);
 
-  const fetchBookings = useCallback(async () => {
-    setBookingsLoading(true);
-    try {
-      const res = await bookingApi.fetchMine();
-      setBookings(res.data || []);
-    } catch (_) {} finally { setBookingsLoading(false); }
-  }, []);
-
   useEffect(() => { fetchTickets(); }, [fetchTickets]);
-  useEffect(() => { fetchBookings(); }, [fetchBookings]);
 
   const getInitials = (name) => {
     if (!name) return "U";
@@ -962,41 +713,6 @@ export default function UserDashboard() {
   };
 
   const roleLabels = { ROLE_USER: "User", ROLE_ADMIN: "Admin", ROLE_TECHNICIAN: "Technician" };
-
-  const [profileName, setProfileName] = useState(user?.name || "");
-  const [savingProfile, setSavingProfile] = useState(false);
-  const [profileMsg, setProfileMsg] = useState("");
-
-  useEffect(() => {
-    setProfileName(user?.name || "");
-  }, [user?.name]);
-
-  const saveProfile = async () => {
-    setSavingProfile(true);
-    setProfileMsg("");
-    try {
-      await api.put("/api/user/profile", { name: profileName });
-      setProfileMsg("Profile updated.");
-    } catch (err) {
-      setProfileMsg(err.response?.data?.error || "Failed to update profile.");
-    } finally {
-      setSavingProfile(false);
-    }
-  };
-
-  const [notifications, setNotifications] = useState(() => ([
-    { id: "n1", icon: "📅", bg: "var(--accent-glow)", title: "Bookings enabled", text: "You can now create and manage facility bookings from your dashboard.", time: "Just now", unread: true },
-    { id: "n2", icon: "🔧", bg: "var(--status-amber-bg)", title: "Tip", text: "Use Maintenance & Tickets to report issues and track updates.", time: "Today", unread: false },
-  ]));
-  const markAllRead = () => setNotifications(n => n.map(x => ({ ...x, unread: false })));
-
-  const cancelBooking = async (id) => {
-    if (!window.confirm("Cancel this booking?")) return;
-    try {
-      await bookingApi.cancel(id);
-      fetchBookings();
-    } catch (_) {}
-  };
 
   return (
     <>
@@ -1014,16 +730,9 @@ export default function UserDashboard() {
             </div>
             <span className="ud-user-name">{user?.name || "User"}</span>
           </div>
-          {activeTab === "BOOKINGS" && (
-            <button className="ud-btn-primary" onClick={() => setShowCreateBooking(true)}>
-              ＋ New Booking
-            </button>
-          )}
-          {activeTab === "TICKETS" && (
-            <button className="ud-btn-primary" onClick={() => setShowCreate(true)}>
-              ＋ New Ticket
-            </button>
-          )}
+          <button className="ud-btn-primary" onClick={() => setShowCreate(true)}>
+            ＋ New Ticket
+          </button>
           <button className="ud-theme-toggle" onClick={toggle} title="Toggle theme">
             {themes[theme]["--toggle-icon"]}
           </button>
@@ -1036,238 +745,96 @@ export default function UserDashboard() {
       <main className="ud-main">
         <div className="fade-in">
           <h1 className="ud-greeting">Welcome, {user?.name?.split(" ")[0] || "User"} 👋</h1>
-          <p className="ud-subtitle">Your SmartCampus dashboard — bookings, maintenance & tickets, notifications, and profile.</p>
-          <div className="ud-tabs">
-            <button className={`ud-tab${activeTab === "BOOKINGS" ? " active" : ""}`} onClick={() => setActiveTab("BOOKINGS")}>Bookings</button>
-            <button className={`ud-tab${activeTab === "TICKETS" ? " active" : ""}`} onClick={() => setActiveTab("TICKETS")}>Maintenance & Tickets</button>
-            <button className={`ud-tab${activeTab === "NOTIFICATIONS" ? " active" : ""}`} onClick={() => setActiveTab("NOTIFICATIONS")}>Notifications</button>
-            <button className={`ud-tab${activeTab === "PROFILE" ? " active" : ""}`} onClick={() => setActiveTab("PROFILE")}>Profile</button>
+          <p className="ud-subtitle">Your SmartCampus dashboard — track and manage your incident tickets.</p>
+        </div>
+
+        {/* Profile Section */}
+        <div className="ud-profile-section fade-in-1">
+          <div className="ud-profile-header">
+            <div className="ud-profile-pic">
+              {user?.picture ? <img src={user.picture} alt="" /> : getInitials(user?.name)}
+            </div>
+            <div>
+              <div className="ud-profile-name">{user?.name}</div>
+              <div className="ud-profile-email">{user?.email}</div>
+              <div className="ud-profile-roles">
+                {user?.roles?.map(r => (
+                  <span key={r} className="ud-role-badge">{roleLabels[r] || r}</span>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
-        {activeTab === "BOOKINGS" && (
-          <div className="ud-card fade-in-1">
-            <div className="ud-card-header">
-              <div className="ud-card-title">📅 My Bookings
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11,
-                  background: "var(--accent-glow)", color: "var(--accent)",
-                  padding: "2px 8px", borderRadius: "100px", marginLeft: 6 }}>
-                  {bookings.length}
-                </span>
-              </div>
-              <button className="ud-btn-ghost" style={{ fontSize: 12 }} onClick={fetchBookings}>↺ Refresh</button>
+        {/* My Tickets */}
+        <div className="ud-tickets-card fade-in-2">
+          <div className="ud-tickets-header">
+            <div className="ud-tickets-title">🎫 My Tickets
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 11,
+                background: "var(--accent-glow)", color: "var(--accent)",
+                padding: "2px 8px", borderRadius: "100px", marginLeft: 6 }}>
+                {tickets.length}
+              </span>
             </div>
-
-            {bookingsLoading ? (
-              <div className="ud-empty-state">Loading bookings…</div>
-            ) : bookings.length === 0 ? (
-              <div className="ud-empty-state">No bookings yet. Click “New Booking” to create one.</div>
-            ) : (
-              <div style={{ overflowX: "auto" }}>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Facility</th>
-                      <th>When</th>
-                      <th>Status</th>
-                      <th style={{ textAlign: "right" }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {bookings.map(b => (
-                      <tr key={b.id}>
-                        <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>#{b.id}</td>
-                        <td>
-                          <div style={{ color: "var(--text-primary)", fontWeight: 600 }}>{b.facilityName}</div>
-                          <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{b.facilityType} · {b.location}</div>
-                        </td>
-                        <td style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>
-                          {formatDateTime(b.startAt)} → {formatTime(b.endAt)}
-                        </td>
-                        <td>
-                          <span className={`badge ${b.status}`} style={{ background: "var(--bg-elevated)", color: "var(--text-muted)" }}>
-                            {b.status}
-                          </span>
-                        </td>
-                        <td style={{ textAlign: "right" }}>
-                          <button className="ud-btn-ghost" style={{ fontSize: 12, marginRight: 8 }}
-                            onClick={() => setEditingBooking(b)} disabled={b.status === "CANCELLED"}>
-                            Edit
-                          </button>
-                          <button className="ud-btn-ghost" style={{ fontSize: 12, borderColor: "rgba(248,113,113,0.35)", color: "var(--status-red)" }}
-                            onClick={() => cancelBooking(b.id)} disabled={b.status === "CANCELLED"}>
-                            Cancel
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <button className="ud-btn-ghost" style={{ fontSize: 12 }} onClick={fetchTickets}>
+              ↺ Refresh
+            </button>
           </div>
-        )}
 
-        {activeTab === "TICKETS" && (
-          <div className="ud-tickets-card fade-in-1">
-            <div className="ud-tickets-header">
-              <div className="ud-tickets-title">🎫 My Tickets
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11,
-                  background: "var(--accent-glow)", color: "var(--accent)",
-                  padding: "2px 8px", borderRadius: "100px", marginLeft: 6 }}>
-                  {tickets.length}
-                </span>
-              </div>
-              <button className="ud-btn-ghost" style={{ fontSize: 12 }} onClick={fetchTickets}>
-                ↺ Refresh
+          {/* Filter tabs */}
+          <div className="ud-filter-row">
+            {filters.map(f => (
+              <button key={f} className={`ud-filter-btn${filter === f ? " active" : ""}`}
+                onClick={() => setFilter(f)}>
+                {f === "ALL" ? "All" : STATUS_LABEL[f] || f}
               </button>
-            </div>
+            ))}
+          </div>
 
-            {/* Filter tabs */}
-            <div className="ud-filter-row">
-              {filters.map(f => (
-                <button key={f} className={`ud-filter-btn${filter === f ? " active" : ""}`}
-                  onClick={() => setFilter(f)}>
-                  {f === "ALL" ? "All" : STATUS_LABEL[f] || f}
-                </button>
-              ))}
+          {loading ? (
+            <div className="ud-empty-state">Loading tickets…</div>
+          ) : tickets.length === 0 ? (
+            <div className="ud-empty-state">
+              No tickets found. Click "New Ticket" to report an issue.
             </div>
-
-            {loading ? (
-              <div className="ud-empty-state">Loading tickets…</div>
-            ) : tickets.length === 0 ? (
-              <div className="ud-empty-state">
-                No tickets found. Click "New Ticket" to report an issue.
-              </div>
-            ) : (
-              <div style={{ overflowX: "auto" }}>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Location</th>
-                      <th>Category</th>
-                      <th>Priority</th>
-                      <th>Status</th>
-                      <th>Created</th>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Location</th>
+                    <th>Category</th>
+                    <th>Priority</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tickets.map(t => (
+                    <tr key={t.id} onClick={() => setSelectedTicket(t)}>
+                      <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
+                        #{t.id}
+                      </td>
+                      <td>{t.resourceLocation}</td>
+                      <td style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                        {t.category?.replace("_", " ")}
+                      </td>
+                      <td><PriorityBadge priority={t.priority} /></td>
+                      <td><StatusBadge status={t.status} /></td>
+                      <td style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>
+                        {formatDate(t.createdAt)}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {tickets.map(t => (
-                      <tr key={t.id} onClick={() => setSelectedTicket(t)}>
-                        <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
-                          #{t.id}
-                        </td>
-                        <td>{t.resourceLocation}</td>
-                        <td style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                          {t.category?.replace("_", " ")}
-                        </td>
-                        <td><PriorityBadge priority={t.priority} /></td>
-                        <td><StatusBadge status={t.status} /></td>
-                        <td style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>
-                          {formatDate(t.createdAt)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === "NOTIFICATIONS" && (
-          <div className="ud-card fade-in-1">
-            <div className="ud-card-header">
-              <div className="ud-card-title">🔔 Notifications</div>
-              <button className="ud-btn-ghost" style={{ fontSize: 12 }} onClick={markAllRead}>Mark all read</button>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            <div className="ud-notifs">
-              {notifications.length === 0 ? (
-                <div className="ud-empty-state">No notifications.</div>
-              ) : (
-                notifications.map(n => (
-                  <div key={n.id} className={`ud-notif${n.unread ? " unread" : ""}`}>
-                    <div className="ud-notif-icon" style={{ background: n.bg }}>{n.icon}</div>
-                    <div style={{ flex: 1 }}>
-                      <div className="ud-notif-title">{n.title}</div>
-                      <div className="ud-notif-text">{n.text}</div>
-                      <div className="ud-notif-time">{n.time}</div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        )}
-
-        {activeTab === "PROFILE" && (
-          <>
-            <div className="ud-profile-section fade-in-1">
-              <div className="ud-profile-header">
-                <div className="ud-profile-pic">
-                  {user?.picture ? <img src={user.picture} alt="" /> : getInitials(user?.name)}
-                </div>
-                <div>
-                  <div className="ud-profile-name">{user?.name}</div>
-                  <div className="ud-profile-email">{user?.email}</div>
-                  <div className="ud-profile-roles">
-                    {user?.roles?.map(r => (
-                      <span key={r} className="ud-role-badge">{roleLabels[r] || r}</span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="ud-card fade-in-2">
-              <div className="ud-card-header">
-                <div className="ud-card-title">👤 Update Profile</div>
-              </div>
-              <div style={{ padding: "18px 22px" }}>
-                {profileMsg && (
-                  <div style={{
-                    padding: "10px 14px",
-                    background: "var(--bg-elevated)",
-                    border: "1px solid var(--border)",
-                    borderRadius: "var(--radius-sm)",
-                    color: "var(--text-secondary)",
-                    marginBottom: 14,
-                    fontSize: 13,
-                  }}>
-                    {profileMsg}
-                  </div>
-                )}
-                <div className="ud-form-group" style={{ marginBottom: 14 }}>
-                  <label className="ud-label">Name</label>
-                  <input className="ud-input" value={profileName} onChange={e => setProfileName(e.target.value)} />
-                </div>
-                <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                  <button className="ud-btn-primary" onClick={saveProfile} disabled={savingProfile || !profileName.trim()}>
-                    {savingProfile ? "Saving…" : "Save"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </>
-        )}
+          )}
+        </div>
       </main>
 
       {/* Modals */}
-      {showCreateBooking && (
-        <CreateBookingModal
-          onClose={() => setShowCreateBooking(false)}
-          onCreated={() => { setShowCreateBooking(false); fetchBookings(); }}
-        />
-      )}
-      {editingBooking && (
-        <EditBookingModal
-          booking={editingBooking}
-          onClose={() => setEditingBooking(null)}
-          onSaved={() => { setEditingBooking(null); fetchBookings(); }}
-        />
-      )}
       {showCreate && (
         <CreateTicketModal
           onClose={() => setShowCreate(false)}
