@@ -28,7 +28,7 @@ public class SecurityConfig {
     private String frontendUrl;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
-                           OAuth2SuccessHandler oAuth2SuccessHandler) {
+            OAuth2SuccessHandler oAuth2SuccessHandler) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.oAuth2SuccessHandler = oAuth2SuccessHandler;
     }
@@ -36,32 +36,30 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            .csrf(csrf -> csrf.disable())
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> auth
-                // Public endpoints
-                .requestMatchers("/", "/test", "/error").permitAll()
-                .requestMatchers("/api/auth/**").permitAll()
-                .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
-                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
+                        // Public endpoints
+                        .requestMatchers("/", "/test", "/error").permitAll()
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                // Admin-only endpoints
-                .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
+                        // Admin-only endpoints
+                        .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
 
-                // Technician endpoints
-                .requestMatchers("/api/technician/**").hasAnyAuthority("ROLE_TECHNICIAN", "ROLE_ADMIN")
+                        // Technician endpoints
+                        .requestMatchers("/api/technician/**").hasAnyAuthority("ROLE_TECHNICIAN", "ROLE_ADMIN")
 
-                // All other API endpoints require authentication
-                .requestMatchers("/api/**").authenticated()
+                        // All other API endpoints require authentication
+                        .requestMatchers("/api/**").authenticated()
 
-                // Allow everything else (static resources, etc.)
-                .anyRequest().permitAll()
-            )
-            .oauth2Login(oauth2 -> oauth2
-                .successHandler(oAuth2SuccessHandler)
-            )
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                        // Allow everything else (static resources, etc.)
+                        .anyRequest().permitAll())
+                .oauth2Login(oauth2 -> oauth2
+                        .successHandler(oAuth2SuccessHandler))
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
