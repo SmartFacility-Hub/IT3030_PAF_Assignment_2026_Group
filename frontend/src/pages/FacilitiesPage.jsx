@@ -352,7 +352,9 @@ export default function FacilitiesPage() {
                       </div>
                     </td>
                     <td><span className="badge type">{f.type?.replace(/_/g, " ")}</span></td>
-                    <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{f.capacity ? `${f.capacity} seats` : "—"}</td>
+                    <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
+                      {f.type === "EQUIPMENT" ? "N/A" : f.capacity ? `${f.capacity} seats` : "—"}
+                    </td>
                     <td>{f.location}</td>
                     <td style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>
                       {f.availabilityStart && f.availabilityEnd ? `${f.availabilityStart} – ${f.availabilityEnd}` : "—"}
@@ -403,7 +405,14 @@ export default function FacilitiesPage() {
               <div className="form-row">
                 <div className="form-field">
                   <label className="form-label">Type *</label>
-                  <select className="form-select" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
+                  <select className="form-select" value={form.type} onChange={e => {
+                    const newType = e.target.value;
+                    setForm(f => ({
+                      ...f,
+                      type: newType,
+                      capacity: newType === "EQUIPMENT" ? "" : f.capacity  // clear capacity for equipment
+                    }));
+                  }}>
                     {FACILITY_TYPES.map(t => <option key={t} value={t}>{t.replace(/_/g, " ")}</option>)}
                   </select>
                 </div>
@@ -420,11 +429,13 @@ export default function FacilitiesPage() {
                   <input className="form-input" placeholder="e.g. Block A, Floor 2"
                     value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} />
                 </div>
-                <div className="form-field">
-                  <label className="form-label">Capacity</label>
-                  <input className="form-input" type="number" placeholder="e.g. 40"
-                    value={form.capacity} onChange={e => setForm(f => ({ ...f, capacity: e.target.value }))} />
-                </div>
+                {form.type !== "EQUIPMENT" && (
+                  <div className="form-field">
+                    <label className="form-label">Capacity</label>
+                    <input className="form-input" type="number" placeholder="e.g. 40"
+                      value={form.capacity} onChange={e => setForm(f => ({ ...f, capacity: e.target.value }))} />
+                  </div>
+                )}
               </div>
               <div className="form-row">
                 <div className="form-field">
