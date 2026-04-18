@@ -1,10 +1,10 @@
-package com.smartfacility.app.BookingManagement.service;
+package com.smartfacility.app.service;
 
 import java.time.LocalDate;
 import java.util.List;
 
-import com.smartfacility.app.BookingManagement.dto.BookingRequestDTO;
-import com.smartfacility.app.BookingManagement.dto.BookingResponseDTO;
+import com.smartfacility.app.dto.BookingRequestDTO;
+import com.smartfacility.app.dto.BookingResponseDTO;
 
 public interface BookingService {
 

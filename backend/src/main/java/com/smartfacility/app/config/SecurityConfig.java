@@ -1,4 +1,4 @@
-package com.smartfacility.app.BookingManagement.config;
+package com.smartfacility.app.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

@@ -1,4 +1,4 @@
-package com.smartfacility.app.BookingManagement.dto;
+package com.smartfacility.app.dto;
 
 import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.Min;

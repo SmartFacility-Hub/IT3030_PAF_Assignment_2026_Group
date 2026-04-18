@@ -1,4 +1,4 @@
-package com.smartfacility.app.BookingManagement.exception;
+package com.smartfacility.app.exception;
 
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;

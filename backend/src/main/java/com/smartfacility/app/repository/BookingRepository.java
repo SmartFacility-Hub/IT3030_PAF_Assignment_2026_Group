@@ -1,7 +1,7 @@
-package com.smartfacility.app.BookingManagement.repository;
+package com.smartfacility.app.repository;
 
-import com.smartfacility.app.BookingManagement.enums.BookingStatus;
-import com.smartfacility.app.BookingManagement.model.Booking;
+import com.smartfacility.app.enums.BookingStatus;
+import com.smartfacility.app.model.Booking;
 
 import java.time.LocalDate;
 import java.time.LocalTime;

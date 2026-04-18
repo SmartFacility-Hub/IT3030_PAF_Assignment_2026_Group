@@ -1,4 +1,4 @@
-package com.smartfacility.app.BookingManagement.enums;
+package com.smartfacility.app.enums;
 
 public enum BookingStatus {
     PENDING,

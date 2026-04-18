@@ -1,8 +1,8 @@
-package com.smartfacility.app.BookingManagement.controller;
+package com.smartfacility.app.controller;
 
-import com.smartfacility.app.BookingManagement.dto.BookingRequestDTO;
-import com.smartfacility.app.BookingManagement.dto.BookingResponseDTO;
-import com.smartfacility.app.BookingManagement.service.BookingService;
+import com.smartfacility.app.dto.BookingRequestDTO;
+import com.smartfacility.app.dto.BookingResponseDTO;
+import com.smartfacility.app.service.BookingService;
 
 import jakarta.validation.Valid;
 import java.time.LocalDate;

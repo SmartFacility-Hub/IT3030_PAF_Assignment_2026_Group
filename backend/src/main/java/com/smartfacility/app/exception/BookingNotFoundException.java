@@ -1,4 +1,4 @@
-package com.smartfacility.app.BookingManagement.exception;
+package com.smartfacility.app.exception;
 
 public class BookingNotFoundException extends RuntimeException {
 

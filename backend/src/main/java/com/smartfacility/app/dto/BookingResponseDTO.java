@@ -1,4 +1,4 @@
-package com.smartfacility.app.BookingManagement.dto;
+package com.smartfacility.app.dto;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;

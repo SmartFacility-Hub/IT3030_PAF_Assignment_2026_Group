@@ -1,4 +1,4 @@
-package com.smartfacility.app.BookingManagement.model;
+package com.smartfacility.app.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -18,7 +18,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
-import com.smartfacility.app.BookingManagement.enums.BookingStatus;
+import com.smartfacility.app.enums.BookingStatus;
 
 @Entity
 @Table(name = "bookings")

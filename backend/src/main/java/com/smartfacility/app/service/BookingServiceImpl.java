@@ -1,12 +1,12 @@
-package com.smartfacility.app.BookingManagement.service;
+package com.smartfacility.app.service;
 
-import com.smartfacility.app.BookingManagement.dto.BookingRequestDTO;
-import com.smartfacility.app.BookingManagement.dto.BookingResponseDTO;
-import com.smartfacility.app.BookingManagement.enums.BookingStatus;
-import com.smartfacility.app.BookingManagement.exception.BookingConflictException;
-import com.smartfacility.app.BookingManagement.exception.BookingNotFoundException;
-import com.smartfacility.app.BookingManagement.model.Booking;
-import com.smartfacility.app.BookingManagement.repository.BookingRepository;
+import com.smartfacility.app.dto.BookingRequestDTO;
+import com.smartfacility.app.dto.BookingResponseDTO;
+import com.smartfacility.app.enums.BookingStatus;
+import com.smartfacility.app.exception.BookingConflictException;
+import com.smartfacility.app.exception.BookingNotFoundException;
+import com.smartfacility.app.model.Booking;
+import com.smartfacility.app.repository.BookingRepository;
 
 import java.time.LocalDate;
 import java.util.List;
