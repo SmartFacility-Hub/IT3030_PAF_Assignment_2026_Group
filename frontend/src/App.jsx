@@ -4,6 +4,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import AdminLayout from "./components/AdminLayout";
 import HomePage from "./pages/HomePage";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminIncidentsPage from "./pages/AdminIncidentsPage";
 import UserDashboard from "./pages/UserDashboard";
 import TechnicianDashboard from "./pages/TechnicianDashboard";
 import OAuthCallback from "./pages/OAuthCallback";
@@ -37,6 +38,7 @@ function App() {
             </ProtectedRoute>
           }>
             <Route index element={<AdminDashboard />} />
+            <Route path="incidents" element={<AdminIncidentsPage />} />
             <Route path="facilities" element={<FacilitiesPage />} />
           </Route>
 
