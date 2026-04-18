@@ -9,6 +9,8 @@ import TechnicianDashboard from "./pages/TechnicianDashboard";
 import OAuthCallback from "./pages/OAuthCallback";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
 import FacilitiesPage from "./pages/FacilitiesPage";
+import LectureDashboard from "./pages/Lecturerdashboard";
+import StudentDashboard from "./pages/Studentdashboard";
 
 function App() {
   return (
@@ -20,12 +22,32 @@ function App() {
           <Route path="/oauth2/callback" element={<OAuthCallback />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
-          {/* Protected: any authenticated user */}
+          {/* Protected: any authenticated user (fallback) */}
           <Route
             path="/dashboard"
             element={
               <ProtectedRoute>
                 <UserDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Protected: STUDENT */}
+          <Route
+            path="/student"
+            element={
+              <ProtectedRoute requiredRole="ROLE_STUDENT">
+                <StudentDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Protected: LECTURER */}
+          <Route
+            path="/lecturer"
+            element={
+              <ProtectedRoute requiredRole="ROLE_LECTURER">
+                <LectureDashboard />
               </ProtectedRoute>
             }
           />
@@ -40,7 +62,7 @@ function App() {
             }
           />
 
-          {/* ── ALL ADMIN PAGES share AdminLayout (static sidebar) ── */}
+          {/* ALL ADMIN PAGES share AdminLayout (static sidebar) */}
           <Route
             path="/admin"
             element={
@@ -49,13 +71,8 @@ function App() {
               </ProtectedRoute>
             }
           >
-            {/* index = /admin */}
             <Route index element={<AdminDashboard />} />
-            {/* /admin/facilities */}
             <Route path="facilities" element={<FacilitiesPage />} />
-            {/* Add future pages here — same pattern */}
-            {/* <Route path="bookings"   element={<BookingsPage />} /> */}
-            {/* <Route path="incidents"  element={<IncidentsPage />} /> */}
           </Route>
 
         </Routes>
