@@ -833,6 +833,31 @@ const styles = `
   }
   .adm-action-btn:hover { border-color: var(--accent-border); color: var(--accent); }
   .adm-action-btn.assign:hover { border-color: var(--status-blue, #60a5fa); color: var(--status-blue, #60a5fa); }
+
+  /* Panel Styles */
+  .adm-panel-overlay { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.4); backdrop-filter: blur(2px); }
+  .adm-panel {
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: 1001; width: 440px; max-width: 90vw;
+    background: var(--bg-surface); border-left: 1px solid var(--border); display: flex; flex-direction: column;
+    box-shadow: -10px 0 40px rgba(0,0,0,0.3); animation: admSlideIn 0.3s ease;
+  }
+  @keyframes admSlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+  .adm-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid var(--border); }
+  .adm-panel-title { font-family: var(--font-display); font-size: 16px; font-weight: 700; color: var(--text-primary); }
+  .adm-panel-close { background: none; border: none; font-size: 18px; color: var(--text-muted); cursor: pointer; }
+  .adm-panel-body { flex: 1; overflow-y: auto; padding: 24px; }
+  .adm-detail-field { margin-bottom: 18px; }
+  .adm-detail-label { font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; }
+  .adm-detail-value { font-size: 14px; color: var(--text-secondary); line-height: 1.5; }
+  .adm-divider { border: 0; border-top: 1px solid var(--border); margin: 24px 0; }
+  .adm-comment-item { padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .adm-comment-meta { display: flex; justify-content: space-between; margin-bottom: 6px; }
+  .adm-comment-author { font-size: 11px; font-weight: 700; color: var(--text-primary); }
+  .adm-comment-time { font-size: 10px; color: var(--text-muted); }
+  .adm-comment-text { font-size: 13px; color: var(--text-secondary); line-height: 1.4; white-space: pre-wrap; }
+  .adm-comment-actions { display: flex; gap: 12px; margin-top: 8px; }
+  .adm-add-comment { margin-top: 24px; }
+  .adm-textarea { width: 100%; border: 1px solid var(--border); border-radius: 4px; padding: 10px; background: var(--bg-elevated); color: var(--text-primary); font-size: 13px; }
 `;
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
@@ -1123,6 +1148,133 @@ function Donut({ segments }) {
   );
 }
 
+// ─── Ticket Detail Panel ──────────────────────────────────────────────────────
+function TicketDetailPanel({ ticket, onClose, onRefresh }) {
+  const { user } = useAuth();
+  const [comments, setComments] = useState(ticket.comments || []);
+  const [newComment, setNewComment] = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [editingText, setEditingText] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleAddComment = async () => {
+    if (!newComment.trim()) return;
+    setSubmitting(true);
+    try {
+      const res = await ticketApi.addComment(ticket.id, newComment.trim());
+      setComments(c => [...c, res.data]);
+      setNewComment("");
+    } catch (_) {} finally { setSubmitting(false); }
+  };
+
+  const handleEditSave = async (commentId) => {
+    try {
+      const res = await ticketApi.editComment(ticket.id, commentId, editingText);
+      setComments(c => c.map(x => x.id === commentId ? res.data : x));
+      setEditingId(null);
+    } catch (_) {}
+  };
+
+  const handleDelete = async (commentId) => {
+    if (!window.confirm("Delete this comment?")) return;
+    try {
+      await ticketApi.deleteComment(ticket.id, commentId);
+      setComments(c => c.filter(x => x.id !== commentId));
+    } catch (_) {}
+  };
+
+  const fmt = d => d ? new Date(d).toLocaleString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '—';
+
+  return (
+    <>
+      <div className="adm-panel-overlay" onClick={onClose} />
+      <aside className="adm-panel">
+        <div className="adm-panel-header">
+          <div className="adm-panel-title">🎫 Incident Details — #{ticket.id}</div>
+          <button className="adm-panel-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="adm-panel-body">
+          <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+            <span className="badge" style={{ background: STATUS_BG[ticket.status], color: STATUS_CLR[ticket.status] }}>
+              {STATUS_LABEL[ticket.status]}
+            </span>
+            <span className="badge" style={{ background: PRIO_BG[ticket.priority], color: PRIO_CLR[ticket.priority] }}>
+              {ticket.priority}
+            </span>
+          </div>
+
+          <div className="adm-detail-field">
+            <div className="adm-detail-label">Location</div>
+            <div className="adm-detail-value"><strong>{ticket.resourceLocation}</strong></div>
+          </div>
+          <div className="adm-detail-field">
+            <div className="adm-detail-label">Description</div>
+            <div className="adm-detail-value">{ticket.description}</div>
+          </div>
+          
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+             <div className="adm-detail-field" style={{ margin: 0 }}>
+               <div className="adm-detail-label">Contact</div>
+               <div className="adm-detail-value">{ticket.contactDetails}</div>
+             </div>
+             <div className="adm-detail-field" style={{ margin: 0 }}>
+               <div className="adm-detail-label">Assigned</div>
+               <div className="adm-detail-value">{ticket.assignedTo || "None"}</div>
+             </div>
+          </div>
+
+          <hr className="adm-divider" />
+          <div className="adm-detail-label" style={{ marginBottom: 12 }}>Comments ({comments.length})</div>
+          
+          <div className="adm-comment-list">
+            {comments.map(c => (
+              <div key={c.id} className="adm-comment-item">
+                <div className="adm-comment-meta">
+                  <span className="adm-comment-author">{c.createdBy}</span>
+                  <span className="adm-comment-time">{fmt(c.createdAt)}</span>
+                </div>
+                {editingId === c.id ? (
+                  <>
+                    <textarea className="adm-textarea" style={{ minHeight: 60 }}
+                      value={editingText} onChange={e => setEditingText(e.target.value)} />
+                    <div className="adm-comment-actions">
+                      <button className="adm-action-btn" onClick={() => handleEditSave(c.id)}>Save</button>
+                      <button className="adm-action-btn" onClick={() => setEditingId(null)}>Cancel</button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="adm-comment-text">{c.content}</div>
+                    <div className="adm-comment-actions">
+                      {c.isOwner && (
+                        <button className="adm-action-btn" 
+                          onClick={() => { setEditingId(c.id); setEditingText(c.content); }}>Edit</button>
+                      )}
+                      {(c.isOwner || user?.roles?.some(r => r === 'ROLE_ADMIN')) && (
+                        <button className="adm-action-btn" style={{ color: 'var(--status-red)' }}
+                          onClick={() => handleDelete(c.id)}>Delete</button>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="adm-add-comment">
+            <textarea className="adm-textarea" placeholder="Add a comment…"
+              value={newComment} onChange={e => setNewComment(e.target.value)} />
+            <button className="btn-primary" style={{ marginTop: 8, width: '100%' }}
+              onClick={handleAddComment} disabled={submitting || !newComment.trim()}>
+              {submitting ? "Posting…" : "Post Comment"}
+            </button>
+          </div>
+        </div>
+      </aside>
+    </>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function AdminDashboard() {
   const { theme, toggle } = useTheme();
@@ -1135,8 +1287,9 @@ export default function AdminDashboard() {
   const [usersLoading, setUsersLoading] = useState(false);
   const [tickets, setTickets] = useState([]);
   const [ticketsLoading, setTicketsLoading] = useState(false);
-  const [assigning, setAssigning] = useState(null);  // ticket to assign
+   const [assigning, setAssigning] = useState(null);  // ticket to assign
   const [statusUpdating, setStatusUpdating] = useState(null); // ticket to update status
+  const [selectedTicket, setSelectedTicket] = useState(null);
 
   const kpi = useCounter({ bookings: 1247, assets: 382, uptime: 99 });
   const openCount = tickets.filter(t => t.status === "OPEN" || t.status === "IN_PROGRESS").length;
@@ -1492,7 +1645,9 @@ export default function AdminDashboard() {
                   </thead>
                   <tbody>
                     {tickets.map(t => (
-                      <tr key={t.id}>
+                      <tr key={t.id} onClick={(e) => {
+                        if (e.target.tagName !== 'BUTTON') setSelectedTicket(t);
+                      }} style={{ cursor: 'pointer' }}>
                         <td style={{ fontFamily:"var(--font-mono)", fontSize:12 }}>#{t.id}</td>
                         <td>{t.resourceLocation}</td>
                         <td>
@@ -1512,9 +1667,9 @@ export default function AdminDashboard() {
                         <td>
                           <div className="adm-row-actions">
                             <button className="adm-action-btn assign"
-                              onClick={() => setAssigning(t)}>Assign</button>
+                              onClick={(e) => { e.stopPropagation(); setAssigning(t); }}>Assign</button>
                             <button className="adm-action-btn"
-                              onClick={() => setStatusUpdating(t)}
+                              onClick={(e) => { e.stopPropagation(); setStatusUpdating(t); }}
                               disabled={t.status === "CLOSED" || t.status === "REJECTED"}>Status</button>
                           </div>
                         </td>
@@ -1715,6 +1870,15 @@ export default function AdminDashboard() {
           ticket={statusUpdating}
           onClose={() => setStatusUpdating(null)}
           onDone={() => { setStatusUpdating(null); fetchTickets(); }}
+        />
+      )}
+
+      {/* Ticket Detail Panel */}
+      {selectedTicket && (
+        <TicketDetailPanel
+          ticket={selectedTicket}
+          onClose={() => setSelectedTicket(null)}
+          onRefresh={fetchTickets}
         />
       )}
     </>
