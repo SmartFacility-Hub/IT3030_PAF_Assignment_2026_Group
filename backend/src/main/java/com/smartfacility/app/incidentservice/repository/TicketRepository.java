@@ -25,4 +25,10 @@ public interface TicketRepository extends JpaRepository<Ticket,Long> {
     //Find all tickets by a specific user with a specific status
     List<Ticket> findByCreatedByAndStatus(String createdBy, TicketStatus status);
 
+    // Find all tickets assigned to a specific technician
+    List<Ticket> findByAssignTo(String technicianId);
+
+    // Find all tickets assigned to a specific technician filtered by status
+    List<Ticket> findByAssignToAndStatus(String technicianId, TicketStatus status);
+
 }

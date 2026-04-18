@@ -51,13 +51,26 @@ public class TicketService {
             return mapToResponse(saved);
 
     }
-     // ─── GET ONE ──────────────────────────────────────────────
+    // ─── GET ONE ──────────────────────────────────────────────
     public TicketResponseDTO getTicketById(Long id) {
         Ticket ticket = findTicketOrThrow(id);
         String userId = currentUserUtil.getCurrentUserId();
 
-        // Users can only see their own tickets; admins see all
-        if (!currentUserUtil.isAdmin() && !ticket.getCreatedBy().equals(userId)) {
+        // Admins see all tickets
+        if (currentUserUtil.isAdmin()) {
+            return mapToResponse(ticket);
+        }
+
+        // Technicians can see tickets assigned to them
+        if (currentUserUtil.isTechnician()) {
+            if (!Objects.equals(ticket.getAssignTo(), userId)) {
+                throw new UnauthorizedException("You can only view tickets assigned to you");
+            }
+            return mapToResponse(ticket);
+        }
+
+        // Regular users can only see their own tickets
+        if (!Objects.equals(ticket.getCreatedBy(), userId)) {
             throw new UnauthorizedException("You do not have permission to view this ticket");
         }
 
@@ -74,6 +87,11 @@ public class TicketService {
             tickets = (status != null)
                     ? ticketRepository.findByStatus(status)
                     : ticketRepository.findAll();
+        } else if (currentUserUtil.isTechnician()) {
+            // Technician sees only tickets assigned to them
+            tickets = (status != null)
+                    ? ticketRepository.findByAssignToAndStatus(userId, status)
+                    : ticketRepository.findByAssignTo(userId);
         } else {
             // Regular user sees only their own tickets
             tickets = (status != null)
@@ -89,6 +107,16 @@ public class TicketService {
      // ─── UPDATE STATUS ────────────────────────────────────────
     public TicketResponseDTO updateTicketStatus(Long id, StatusUpdateDTO dto) {
         Ticket ticket = findTicketOrThrow(id);
+        String userId = currentUserUtil.getCurrentUserId();
+
+        // Only admins or the assigned technician can update status
+        boolean isAssignedTechnician = currentUserUtil.isTechnician()
+                && Objects.equals(ticket.getAssignTo(), userId);
+
+        if (!currentUserUtil.isAdmin() && !isAssignedTechnician) {
+            throw new UnauthorizedException(
+                "Only admins or the assigned technician can update the ticket status");
+        }
 
         // Validate the status transition is allowed
         validateStatusTransition(ticket.getStatus(), dto.getStatus());
