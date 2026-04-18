@@ -42,7 +42,6 @@ public class TicketService {
             .category(dto.getCategory())
             .description(dto.getDescription())
             .priority(dto.getPriority())
-            .contactDetails(dto.getContactDetails())
             .status(TicketStatus.OPEN)  // always starts as OPEN
             .createdBy(userId)
             .build();
@@ -206,7 +205,6 @@ public class TicketService {
                 .description(ticket.getDescription())
                 .priority(ticket.getPriority())
                 .status(ticket.getStatus())
-                .contactDetails(ticket.getContactDetails())
                 .createdBy(ticket.getCreatedBy())
                 .assignedTo(ticket.getAssignTo())
                 .resolutionNotes(ticket.getResolutionNotes())
