@@ -189,13 +189,15 @@ const themes = {
 
 const breadcrumbs = {
   "/student":            { title: "My Dashboard",  sub: "Student" },
-  "/student/bookings":   { title: "My Bookings",   sub: "Reservations" },
+  "/bookings/my":        { title: "My Bookings",   sub: "Reservations" },
+  "/bookings/new":       { title: "New Booking",   sub: "Reservations" },
   "/student/incidents":  { title: "My Incidents",  sub: "Reports" },
 };
 
 const routeToNavId = {
   "/student":            "dashboard",
-  "/student/bookings":   "bookings",
+  "/bookings/my":        "bookings",
+  "/bookings/new":       "new",
   "/student/incidents":  "incidents",
 };
 
@@ -210,9 +212,9 @@ const navSections = [
   {
     label: "Bookings",
     items: [
-      { icon: "📅", label: "My Bookings",   id: "bookings",  route: "/student/bookings" },
+      { icon: "📅", label: "My Bookings",   id: "bookings",  route: "/bookings/my" },
       { icon: "🔍", label: "Browse Rooms",  id: "browse",    route: "/student/browse" },
-      { icon: "➕", label: "New Booking",   id: "new",       route: "/student/new-booking" },
+      { icon: "➕", label: "New Booking",   id: "new",       route: "/bookings/new" },
     ],
   },
   {

@@ -190,16 +190,16 @@ const themes = {
 };
 
 const breadcrumbs = {
-  "/lecturer":           { title: "My Dashboard",    sub: "Faculty" },
-  "/lecturer/schedule":  { title: "My Schedule",     sub: "Teaching" },
-  "/lecturer/bookings":  { title: "My Bookings",     sub: "Reservations" },
-  "/lecturer/incidents": { title: "My Incidents",    sub: "Reports" },
+  "/lecturer":           { title: "My Dashboard",  sub: "Lecturer" },
+  "/bookings/my":        { title: "My Bookings",   sub: "Reservations" },
+  "/bookings/new":       { title: "New Booking",   sub: "Reservations" },
+  "/lecturer/incidents": { title: "My Incidents",  sub: "Reports" },
 };
 
 const routeToNavId = {
   "/lecturer":           "dashboard",
-  "/lecturer/schedule":  "schedule",
-  "/lecturer/bookings":  "bookings",
+  "/bookings/my":        "bookings",
+  "/bookings/new":       "new",
   "/lecturer/incidents": "incidents",
 };
 
@@ -215,8 +215,8 @@ const navSections = [
     label: "Schedule & Bookings",
     items: [
       { icon: "📅", label: "My Schedule",   id: "schedule",  route: "/lecturer/schedule" },
-      { icon: "🏛️", label: "Book a Room",  id: "book",      route: "/lecturer/book" },
-      { icon: "📋", label: "My Bookings",   id: "bookings",  route: "/lecturer/bookings" },
+      { icon: "🏛️", label: "New Booking",  id: "book",      route: "/bookings/new" },
+      { icon: "📋", label: "My Bookings",   id: "bookings",  route: "/bookings/my" },
     ],
   },
   {

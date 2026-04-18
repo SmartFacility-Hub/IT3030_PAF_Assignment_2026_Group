@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { getAllBookings } from "../services/bookingService";
 
 const themes = {
   dark: {
@@ -237,7 +238,7 @@ const styles = `
 const breadcrumbs = {
   "/admin":             { title: "Dashboard",              sub: "Overview" },
   "/admin/facilities":  { title: "Facilities",             sub: "Catalogue" },
-  "/admin/bookings":    { title: "Bookings",               sub: "Management" },
+  "/bookings/admin":    { title: "Bookings",               sub: "Management" },
   "/admin/incidents":   { title: "Incidents",              sub: "Tickets" },
   "/admin/users":       { title: "Users & Roles",          sub: "Management" },
   "/admin/analytics":   { title: "Analytics",              sub: "Reports" },
@@ -248,7 +249,7 @@ const breadcrumbs = {
 const routeToNavId = {
   "/admin":             "dashboard",
   "/admin/facilities":  "facilities",
-  "/admin/bookings":    "bookings",
+  "/bookings/admin":    "bookings",
   "/admin/incidents":   "incidents",
   "/admin/technicians": "technicians",
   "/admin/users":       "users",
@@ -274,7 +275,7 @@ const navSections = [
   {
     label: "Operations",
     items: [
-      { icon: "📅", label: "Bookings",     id: "bookings",    route: "/admin/bookings",    badge: "4" },
+      { icon: "📅", label: "Bookings",     id: "bookings",    route: "/bookings/admin",    badge: "4" },
       { icon: "🔧", label: "Incidents",    id: "incidents",   route: "/admin/incidents",   badge: "9", badgeRed: true },
       { icon: "👷", label: "Technicians",  id: "technicians", route: "/admin/technicians" },
     ],
@@ -297,6 +298,15 @@ export default function AdminLayout() {
   const [theme, setTheme] = useState(
     window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light"
   );
+  
+  const [pendingBookings, setPendingBookings] = useState(0);
+
+  useEffect(() => {
+    getAllBookings().then(res => {
+      const data = Array.isArray(res.data) ? res.data : (res.data?.content || []);
+      setPendingBookings(data.filter(b => b.status === 'PENDING').length);
+    }).catch(err => console.error("Failed to load bookings", err));
+  }, [location.pathname]);
 
   // Apply theme tokens
   const applyTheme = (t) => {
@@ -342,7 +352,11 @@ export default function AdminLayout() {
           {navSections.map(sec => (
             <div key={sec.label}>
               <div className="sidebar-section-label">{sec.label}</div>
-              {sec.items.map(item => (
+              {sec.items.map(item => {
+                let badge = item.badge;
+                if (item.id === 'bookings') badge = pendingBookings > 0 ? pendingBookings.toString() : null;
+                
+                return (
                 <div
                   key={item.id}
                   className={`nav-item${activeNavId === item.id ? " active" : ""}`}
@@ -350,13 +364,13 @@ export default function AdminLayout() {
                 >
                   <span className="nav-item-icon">{item.icon}</span>
                   <span className="nav-item-label">{item.label}</span>
-                  {item.badge && (
+                  {badge && (
                     <span className={`nav-badge${item.badgeRed ? " red" : ""}`}>
-                      {item.badge}
+                      {badge}
                     </span>
                   )}
                 </div>
-              ))}
+              )})}
             </div>
           ))}
         </nav>
