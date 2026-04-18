@@ -9,6 +9,7 @@ import OAuthCallback from "./pages/OAuthCallback";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
 import LectureDashboard from "./pages/Lecturerdashboard";
 import StudentDashboard from "./pages/Studentdashboard";
+import FacilitiesPage from "./pages/FacilitiesPage";
 
 function App() {
   return (
@@ -36,6 +37,16 @@ function App() {
             element={
               <ProtectedRoute requiredRole="ROLE_ADMIN">
                 <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Protected: ADMIN only — Facilities */}
+          <Route
+            path="/admin/facilities"
+            element={
+              <ProtectedRoute requiredRole="ROLE_ADMIN">
+                <FacilitiesPage />
               </ProtectedRoute>
             }
           />
