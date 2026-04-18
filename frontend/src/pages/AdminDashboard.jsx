@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
+import BookingStatusBadge from "../components/BookingStatusBadge";
+import RejectModal from "../components/RejectModal";
+import { getAllBookings, approveBooking, rejectBooking } from "../services/bookingService";
 
 // ─── Page-specific styles only (no sidebar/topbar/themes) ─────────────────────
 const styles = `
@@ -371,14 +374,95 @@ function Donut({ segments }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const [approvals,    setApprovals]    = useState(pendingBookings);
+  const [bookings, setBookings] = useState([]);
+  const [bookingsLoading, setBookingsLoading] = useState(false);
+  const [bookingsError, setBookingsError] = useState("");
+  const [bookingsSuccess, setBookingsSuccess] = useState("");
+  const [approvals,    setApprovals]    = useState([]);
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejectTarget, setRejectTarget] = useState(null);
+  const [rejectBusy, setRejectBusy] = useState(false);
   const [allUsers,     setAllUsers]     = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
+  const location = useLocation();
+  const showAnalytics = location.pathname === "/admin/analytics";
 
-  const kpi = useCounter({ bookings: 1247, assets: 382, incidents: 47, uptime: 99 });
+  const kpi = useCounter({ bookings: bookings.length, assets: 382, incidents: 47, uptime: 99 });
 
-  const handleApprove = (id) => setApprovals(a => a.filter(x => x.id !== id));
-  const handleReject  = (id) => setApprovals(a => a.filter(x => x.id !== id));
+  const fetchBookings = useCallback(async () => {
+    setBookingsLoading(true);
+    setBookingsError("");
+    try {
+      // BACKEND: GET /api/bookings — BookingController.getAllBookings()
+      // CONNECTS TO: BookingController.java → BookingServiceImpl.java
+      const res = await getAllBookings();
+      console.log("[AdminDashboard] all bookings response:", res?.data);
+      const data = Array.isArray(res?.data) ? res.data : [];
+      setBookings(data);
+      setApprovals(data.filter((b) => (b?.status || "").toString().toUpperCase() === "PENDING"));
+    } catch (err) {
+      setBookings([]);
+      setApprovals([]);
+      const msg = err?.response?.data?.message || err?.message || "Failed to load bookings.";
+      setBookingsError(msg);
+    } finally {
+      setBookingsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchBookings();
+  }, [fetchBookings]);
+
+  const handleApprove = useCallback(async (id) => {
+    if (id == null) return;
+    try {
+      // BACKEND: PUT /api/bookings/{id}/approve — BookingController.approveBooking()
+      // CONNECTS TO: BookingController.java → BookingServiceImpl.java
+      await approveBooking(id);
+      setBookingsSuccess("Booking approved.");
+      await fetchBookings();
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.message || "Failed to approve booking.";
+      setBookingsError(msg);
+    }
+  }, [fetchBookings]);
+
+  const openReject = useCallback((booking) => {
+    setRejectTarget(booking);
+    setRejectOpen(true);
+  }, []);
+
+  const closeReject = useCallback(() => {
+    if (rejectBusy) return;
+    setRejectOpen(false);
+    setRejectTarget(null);
+  }, [rejectBusy]);
+
+  const confirmReject = useCallback(async (reason) => {
+    const id = rejectTarget?.id;
+    if (id == null) return;
+    setRejectBusy(true);
+    try {
+      // BACKEND: PUT /api/bookings/{id}/reject — BookingController.rejectBooking()
+      // CONNECTS TO: BookingController.java → BookingServiceImpl.java
+      await rejectBooking(id, reason);
+      setBookingsSuccess("Booking rejected.");
+      closeReject();
+      await fetchBookings();
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.message || "Failed to reject booking.";
+      setBookingsError(msg);
+    } finally {
+      setRejectBusy(false);
+    }
+  }, [closeReject, fetchBookings, rejectTarget]);
+
+  useEffect(() => {
+    if (!bookingsSuccess) return;
+    const t = setTimeout(() => setBookingsSuccess(""), 2500);
+    return () => clearTimeout(t);
+  }, [bookingsSuccess]);
 
   const fetchUsers = useCallback(async () => {
     setUsersLoading(true);
@@ -409,26 +493,221 @@ export default function AdminDashboard() {
   return (
     <div style={{ padding: "32px", minHeight: "calc(100vh - 60px)" }}>
       <style dangerouslySetInnerHTML={{ __html: styles }} />
+      <RejectModal
+        open={rejectOpen}
+        title={rejectTarget ? `Reject booking #${rejectTarget.id}` : "Reject booking"}
+        onClose={closeReject}
+        onConfirm={confirmReject}
+        busy={rejectBusy}
+      />
+
+      {bookingsSuccess && (
+        <div style={{ marginBottom: 14, color: "var(--status-green)", fontFamily: "var(--font-mono)", fontSize: 12 }}>
+          {bookingsSuccess}
+        </div>
+      )}
 
       {/* Page Header */}
       <div className="page-header fade-in">
         <div className="page-header-left">
           <div className="page-label">Operations Overview</div>
-          <div className="page-title">Admin Dashboard</div>
-          <div className="page-subtitle">Smart Campus Operations Hub</div>
+          <div className="page-title">{showAnalytics ? "Usage Analytics" : "Admin Dashboard"}</div>
+          <div className="page-subtitle">{showAnalytics ? "Booking trends and resource utilization" : "Smart Campus Operations Hub"}</div>
         </div>
         <div className="page-header-right">
-          <button className="btn-ghost">⬇ Export Report</button>
-          <button className="btn-primary" onClick={() => navigate("/admin/facilities")}>
-            🏛️ Manage Resources
-          </button>
+          {showAnalytics ? (
+            <button className="btn-ghost" onClick={() => navigate("/admin")}>← Back to Dashboard</button>
+          ) : (
+            <>
+              <button className="btn-ghost">⬇ Export Report</button>
+              <button className="btn-primary" onClick={() => navigate("/admin/facilities")}>
+                🏛️ Manage Resources
+              </button>
+            </>
+          )}
         </div>
       </div>
-
-      {/* KPI Row */}
+      
+      {showAnalytics ? (
+        <div className="fade-in-1">
+          <div className="content-grid">
+            <div className="card">
+              <div className="card-header">
+                <div>
+                  <div className="card-title"><span>📊</span> Booking Status Breakdown</div>
+                  <div className="card-subtitle">Distribution of all bookings</div>
+                </div>
+              </div>
+              <div className="card-body">
+                {(() => {
+                  const total = bookings.length;
+                  const pCount = bookings.filter(b => b.status === 'PENDING').length;
+                  const aCount = bookings.filter(b => b.status === 'APPROVED').length;
+                  const rCount = bookings.filter(b => b.status === 'REJECTED').length;
+                  const cCount = bookings.filter(b => b.status === 'CANCELLED').length;
+                  
+                  return (
+                    <div style={{background:'#FFF7ED', borderRadius:'12px', padding:'20px'}}>
+                      {[
+                        {label:'Approved', count:aCount, color:'#16A34A'},
+                        {label:'Pending', count:pCount, color:'#F97316'},
+                        {label:'Rejected', count:rCount, color:'#DC2626'},
+                        {label:'Cancelled', count:cCount, color:'#78716C'},
+                      ].map(item => (
+                        <div key={item.label} style={{marginBottom:'12px'}}>
+                          <div style={{display:'flex', justifyContent:'space-between', marginBottom:'4px'}}>
+                            <span style={{fontSize:'13px', color:'#1C1917'}}>{item.label}</span>
+                            <span style={{fontSize:'13px', fontWeight:'600', color:'#1C1917'}}>
+                              {item.count} ({total > 0 ? Math.round(item.count/total*100) : 0}%)
+                            </span>
+                          </div>
+                          <div style={{background:'#E7E5E4', borderRadius:'4px', height:'8px'}}>
+                            <div style={{
+                              width: total > 0 ? `${item.count/total*100}%` : '0%',
+                              background: item.color,
+                              height:'8px',
+                              borderRadius:'4px',
+                              transition:'width 0.5s ease'
+                            }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+            
+            <div className="card">
+              <div className="card-header">
+                <div>
+                  <div className="card-title"><span>🔥</span> Top Booked Resources</div>
+                  <div className="card-subtitle">Most requested facilities</div>
+                </div>
+              </div>
+              <div className="card-body">
+                {(() => {
+                  const resourceCounts = bookings.reduce((acc, b) => {
+                    const name = b.resourceName || `Resource #${b.resourceId}`;
+                    acc[name] = (acc[name] || 0) + 1;
+                    return acc;
+                  }, {});
+                  const topResources = Object.entries(resourceCounts)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 5);
+                  
+                  return (
+                    <div style={{display:'flex', flexDirection:'column', gap:'12px'}}>
+                      {topResources.length === 0 ? <p style={{color:'#78716C', fontSize:'13px'}}>No bookings yet.</p> : null}
+                      {topResources.map(([name, count], idx) => (
+                        <div key={name} style={{display:'flex', alignItems:'center', gap:'12px'}}>
+                          <div style={{width:'24px', height:'24px', borderRadius:'50%', background:'#FFF7ED', color:'#F97316', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'12px', fontWeight:'700'}}>
+                            #{idx + 1}
+                          </div>
+                          <div style={{flex:1, fontSize:'13px', fontWeight:'500', color:'#1C1917'}}>{name}</div>
+                          <div style={{fontSize:'13px', color:'#78716C', borderBottom:'1px dashed #E7E5E4', flex:1, margin:'0 8px'}} />
+                          <div style={{fontSize:'13px', fontWeight:'600', color:'#1C1917'}}>{count} booking{count!==1?'s':''}</div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+          
+          <div className="content-grid">
+            <div className="card">
+              <div className="card-header">
+                <div>
+                  <div className="card-title"><span>📅</span> Bookings by Day of Week</div>
+                  <div className="card-subtitle">Peak days analysis</div>
+                </div>
+              </div>
+              <div className="card-body">
+                {(() => {
+                  const dayCount = {Mon:0, Tue:0, Wed:0, Thu:0, Fri:0, Sat:0, Sun:0};
+                  bookings.forEach(b => {
+                    if (b.bookingDate) {
+                      const date = new Date(b.bookingDate);
+                      if (!isNaN(date)) {
+                        const day = date.toLocaleDateString('en', {weekday:'short'});
+                        if (dayCount[day] !== undefined) dayCount[day]++;
+                      }
+                    }
+                  });
+                  const maxDayCount = Math.max(...Object.values(dayCount), 1);
+                  
+                  return (
+                    <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
+                      {Object.entries(dayCount).map(([day, count]) => (
+                        <div key={day} style={{display:'flex', alignItems:'center', gap:'12px'}}>
+                          <div style={{width:'30px', fontSize:'12px', color:'#78716C', fontWeight:'600'}}>{day}</div>
+                          <div style={{flex:1, height:'20px', background:'#F5F5F4', borderRadius:'4px', overflow:'hidden'}}>
+                            <div style={{
+                              height:'100%',
+                              width:`${count/maxDayCount*100}%`,
+                              background:'#F97316',
+                              transition:'width 0.5s ease',
+                              borderRight: '1px solid #EA580C'
+                            }} />
+                          </div>
+                          <div style={{width:'20px', fontSize:'13px', fontWeight:'600', textAlign:'right'}}>{count}</div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+            
+            <div className="card">
+              <div className="card-header">
+                <div>
+                  <div className="card-title"><span>📈</span> Recent Activity Summary</div>
+                  <div className="card-subtitle">Quick metrics</div>
+                </div>
+              </div>
+              <div className="card-body">
+                {(() => {
+                  const total = bookings.length;
+                  const avgAttendees = Math.round(bookings.reduce((s,b) => s + (Number(b.expectedAttendees)||0), 0) / (total || 1));
+                  
+                  const userCounts = bookings.reduce((acc, b) => {
+                    if (b.userName) acc[b.userName] = (acc[b.userName] || 0) + 1;
+                    return acc;
+                  }, {});
+                  const topUser = Object.entries(userCounts).sort((a,b) => b[1]-a[1])[0];
+                  
+                  return (
+                    <div style={{display:'flex', flexDirection:'column', gap:'16px'}}>
+                      <div style={{padding:'16px', background:'#F8FAFC', borderRadius:'8px', border:'1px solid #E2E8F0'}}>
+                        <div style={{fontSize:'12px', color:'#64748B', textTransform:'uppercase', letterSpacing:'0.05em'}}>Total Bookings</div>
+                        <div style={{fontSize:'24px', fontWeight:'700', color:'#0F172A', marginTop:'4px'}}>{total}</div>
+                      </div>
+                      <div style={{padding:'16px', background:'#F8FAFC', borderRadius:'8px', border:'1px solid #E2E8F0'}}>
+                        <div style={{fontSize:'12px', color:'#64748B', textTransform:'uppercase', letterSpacing:'0.05em'}}>Average Attendees</div>
+                        <div style={{fontSize:'24px', fontWeight:'700', color:'#0F172A', marginTop:'4px'}}>{avgAttendees} <span style={{fontSize:'14px', color:'#64748B', fontWeight:'400'}}>per booking</span></div>
+                      </div>
+                      <div style={{padding:'16px', background:'#F8FAFC', borderRadius:'8px', border:'1px solid #E2E8F0'}}>
+                        <div style={{fontSize:'12px', color:'#64748B', textTransform:'uppercase', letterSpacing:'0.05em'}}>Most Active User</div>
+                        <div style={{fontSize:'20px', fontWeight:'700', color:'#0F172A', marginTop:'4px'}}>
+                          {topUser ? `${topUser[0]} (${topUser[1]} bookings)` : 'N/A'}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* KPI Row */}
       <div className="kpi-grid">
         {[
-          { icon: "📅", label: "Total Bookings",   value: kpi.bookings.toLocaleString() + "+", change: "+12%",     up: true,  sub: "This semester" },
+          { icon: "📅", label: "Total Bookings",   value: bookings.length,                    change: "Live",      up: null,  sub: "All booking requests" },
           { icon: "🖥️", label: "Assets Tracked",  value: kpi.assets,                          change: "+8 today",  up: true,  sub: "Active inventory" },
           { icon: "🔧", label: "Open Incidents",   value: kpi.incidents,                       change: "−3 today",  up: false, sub: "Awaiting resolution" },
           { icon: "⚡",  label: "Platform Uptime", value: kpi.uptime + "%",                    change: "Stable",    up: null,  sub: "Last 30 days" },
@@ -515,23 +794,33 @@ export default function AdminDashboard() {
               <div className="card-title"><span className="card-title-icon">⏳</span> Pending Approvals</div>
               <div className="card-subtitle">{approvals.length} booking requests awaiting review</div>
             </div>
-            <button className="card-action">View all bookings →</button>
+            <button className="card-action" onClick={() => navigate("/bookings/admin")}>View all bookings →</button>
           </div>
-          {approvals.length === 0 ? (
+          {bookingsLoading ? (
+            <div style={{ padding: "32px 22px", textAlign: "center", color: "var(--text-muted)", fontFamily: "var(--font-mono)", fontSize: "12px" }}>
+              Loading pending bookings...
+            </div>
+          ) : bookingsError ? (
+            <div style={{ padding: "32px 22px", textAlign: "center", color: "var(--status-red)", fontFamily: "var(--font-mono)", fontSize: "12px" }}>
+              {bookingsError}
+            </div>
+          ) : approvals.length === 0 ? (
             <div style={{ padding: "32px 22px", textAlign: "center", color: "var(--text-muted)", fontFamily: "var(--font-mono)", fontSize: "12px" }}>
               ✅ All caught up! No pending approvals.
             </div>
           ) : (
-            approvals.map(b => (
+            approvals.map((b) => (
               <div className="approval-item" key={b.id}>
-                <div className="approval-icon">{b.icon}</div>
+                <div className="approval-icon">📅</div>
                 <div className="approval-body">
-                  <div className="approval-name">{b.name}</div>
-                  <div className="approval-meta">{b.id} &nbsp;·&nbsp; {b.detail}</div>
+                  <div className="approval-name">{b.userName || "—"} — {b.resourceName || `Resource #${b.resourceId ?? "—"}`}</div>
+                  <div className="approval-meta">
+                    #{b.id} &nbsp;·&nbsp; {b.bookingDate || "—"} · {b.startTime || "—"}–{b.endTime || "—"} · {b.expectedAttendees ?? "—"} attendees
+                  </div>
                 </div>
                 <div className="approval-actions">
                   <button className="approve-btn" onClick={() => handleApprove(b.id)}>✓ Approve</button>
-                  <button className="reject-btn"  onClick={() => handleReject(b.id)}>✕ Reject</button>
+                  <button className="reject-btn"  onClick={() => openReject(b)}>✕ Reject</button>
                 </div>
               </div>
             ))
@@ -640,11 +929,11 @@ export default function AdminDashboard() {
         <div className="card-header">
           <div>
             <div className="card-title"><span className="card-title-icon">📅</span> Recent Bookings</div>
-            <div className="card-subtitle">Last 6 booking requests across all resources</div>
+            <div className="card-subtitle">Last 5 booking requests across all resources</div>
           </div>
           <div style={{ display: "flex", gap: "8px" }}>
             <button className="btn-ghost">Filter</button>
-            <button className="card-action" style={{ marginTop: 0 }}>View all →</button>
+            <button className="card-action" style={{ marginTop: 0 }} onClick={() => navigate("/bookings/admin")}>View all →</button>
           </div>
         </div>
         <div className="table-wrap">
@@ -653,33 +942,34 @@ export default function AdminDashboard() {
               <tr><th>Booking ID</th><th>Resource</th><th>Requested By</th><th>Date</th><th>Time Slot</th><th>Status</th><th>Actions</th></tr>
             </thead>
             <tbody>
-              {recentBookings.map(b => (
+              {(bookings || []).slice(0, 5).map((b) => {
+                const status = (b?.status || "").toString().toUpperCase();
+                return (
                 <tr key={b.id}>
                   <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{b.id}</td>
-                  <td>{b.resource}</td>
-                  <td style={{ color: "var(--text-secondary)" }}>{b.user}</td>
-                  <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{b.date}</td>
-                  <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{b.time}</td>
+                  <td>{b.resourceName || `Resource #${b.resourceId ?? "—"}`}</td>
+                  <td style={{ color: "var(--text-secondary)" }}>{b.userName || "—"}</td>
+                  <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{b.bookingDate || "—"}</td>
+                  <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{(b.startTime || "—") + "–" + (b.endTime || "—")}</td>
                   <td>
-                    <span className={`badge ${b.status}`}>
-                      <span className="badge-dot" style={{
-                        background: b.status === "approved" ? "var(--status-green)" : b.status === "pending" ? "var(--status-amber)" : "var(--status-red)"
-                      }} />
-                      {b.status.charAt(0).toUpperCase() + b.status.slice(1)}
-                    </span>
+                    <BookingStatusBadge status={b.status} />
                   </td>
                   <td>
                     <div style={{ display: "flex", gap: "6px" }}>
-                      {b.status === "pending" && (
-                        <><button className="approve-btn">✓</button><button className="reject-btn">✕</button></>
+                      {status === "PENDING" && (
+                        <>
+                          <button className="approve-btn" onClick={() => handleApprove(b.id)}>✓</button>
+                          <button className="reject-btn" onClick={() => openReject(b)}>✕</button>
+                        </>
                       )}
-                      {b.status !== "pending" && (
-                        <button className="card-action" style={{ fontSize: 11 }}>View →</button>
+                      {status !== "PENDING" && (
+                        <button className="card-action" style={{ fontSize: 11 }} onClick={() => navigate(`/bookings/${b.id}`)}>View →</button>
                       )}
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -766,17 +1056,24 @@ export default function AdminDashboard() {
             { icon: "🖥️", label: "Add Asset",         desc: "Add equipment to inventory",  action: () => {} },
             { icon: "👥", label: "Manage Users",      desc: "Edit roles & permissions",    action: () => {} },
             { icon: "📋", label: "View Audit Log",    desc: "Full action history",         action: () => {} },
-            { icon: "📊", label: "Usage Analytics",   desc: "Bookings & peak hours",       action: () => {} },
+            { icon: "📊", label: "Usage Analytics",   desc: "Bookings & peak hours",       action: () => navigate("/admin/analytics"), highlight: true },
             { icon: "📧", label: "Send Notification", desc: "Broadcast to all users",      action: () => {} },
           ].map(a => (
-            <button className="quick-action-btn" key={a.label} onClick={a.action}>
+            <button 
+              className="quick-action-btn" 
+              key={a.label} 
+              onClick={a.action}
+              style={a.highlight ? { background: '#FFF7ED', borderColor: '#F97316' } : {}}
+            >
               <span className="quick-action-icon">{a.icon}</span>
-              <span className="quick-action-label">{a.label}</span>
+              <span className="quick-action-label" style={a.highlight ? { color: '#F97316' } : {}}>{a.label}</span>
               <span className="quick-action-desc">{a.desc}</span>
             </button>
           ))}
         </div>
       </div>
+        </>
+      )}
 
     </div>
   );

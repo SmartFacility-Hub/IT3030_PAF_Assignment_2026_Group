@@ -40,14 +40,14 @@ function App() {
             </ProtectedRoute>
           } />
 
-          {/* ── ADMIN (static sidebar via AdminLayout) ── */}
-          <Route path="/admin" element={
+          <Route element={
             <ProtectedRoute requiredRole="ROLE_ADMIN">
               <AdminLayout />
             </ProtectedRoute>
           }>
-            <Route index element={<AdminDashboard />} />
-            <Route path="facilities" element={<FacilitiesPage />} />
+            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/admin/analytics" element={<AdminDashboard />} />
+            <Route path="/admin/facilities" element={<FacilitiesPage />} />
           </Route>
 
           {/* ── STUDENT (static sidebar via StudentLayout) ── */}
