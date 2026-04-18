@@ -14,22 +14,27 @@ export default function OAuthCallback() {
     if (token) {
       login(token);
 
-      // Small delay to let context update
       setTimeout(() => {
-        // Decode token to check roles for redirect
         try {
           const base64Url = token.split('.')[1];
           const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
           const payload = JSON.parse(atob(base64));
           const roles = payload.roles || [];
 
+          // ── Role-based redirect ──────────────────────────
           if (roles.includes('ROLE_ADMIN')) {
             navigate('/admin', { replace: true });
           } else if (roles.includes('ROLE_TECHNICIAN')) {
             navigate('/technician', { replace: true });
+          } else if (roles.includes('ROLE_LECTURER')) {
+            navigate('/lecturer', { replace: true });
+          } else if (roles.includes('ROLE_STUDENT')) {
+            navigate('/student', { replace: true });
           } else {
             navigate('/dashboard', { replace: true });
           }
+          // ────────────────────────────────────────────────
+
         } catch {
           navigate('/dashboard', { replace: true });
         }
@@ -42,19 +47,15 @@ export default function OAuthCallback() {
 
   return (
     <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '100vh',
-      background: '#0a0f1e',
+      display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      minHeight: '100vh', background: '#0a0f1e',
       color: '#f0f4ff',
       fontFamily: "'Instrument Sans', system-ui, sans-serif",
       gap: '16px',
     }}>
       <div style={{
-        width: '40px',
-        height: '40px',
+        width: '40px', height: '40px',
         border: '3px solid rgba(245,166,35,0.3)',
         borderTopColor: '#f5a623',
         borderRadius: '50%',
