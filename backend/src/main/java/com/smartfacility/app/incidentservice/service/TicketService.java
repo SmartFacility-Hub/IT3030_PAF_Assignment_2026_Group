@@ -1,6 +1,7 @@
 package com.smartfacility.app.incidentservice.service;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -32,6 +33,9 @@ public class TicketService {
     //create
     public TicketResponseDTO createTicket(TicketRequestDTO dto){
         String userId = currentUserUtil.getCurrentUserId();
+        if (userId == null) {
+            throw new UnauthorizedException("You must be logged in to create a ticket");
+        }
 
         Ticket ticket = Ticket.builder()
             .resourceLocation(dto.getResourceLocation())
@@ -163,7 +167,7 @@ public class TicketService {
                         .createdBy(c.getCreatedBy())
                         .createdAt(c.getCreatedAt())
                         .updatedAt(c.getUpdatedAt())
-                        .isOwner(c.getCreatedBy().equals(userId))
+                        .isOwner(Objects.equals(c.getCreatedBy(), userId))
                         .build())
                 .collect(Collectors.toList());
 
