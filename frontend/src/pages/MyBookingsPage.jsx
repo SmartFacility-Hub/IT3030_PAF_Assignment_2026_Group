@@ -17,14 +17,14 @@ function extractMessage(err) {
 export default function MyBookingsPage() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [conflictMessage, setConflictMessage] = useState('');
-  const [actionError, setActionError] = useState('');
+  const [error, setError] = useState(null);
+  const [conflictMessage, setConflictMessage] = useState(null);
+  const [actionError, setActionError] = useState(null);
   const [cancellingId, setCancellingId] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    setError('');
+    setError(null);
     try {
       // BACKEND: GET /api/bookings/my - fetches current user's bookings (BookingController.java)
       const res = await getMyBookings();
@@ -41,8 +41,8 @@ export default function MyBookingsPage() {
   }, [load]);
 
   const handleCancel = async (id) => {
-    setActionError('');
-    setConflictMessage('');
+    setActionError(null);
+    setConflictMessage(null);
     setCancellingId(id);
     try {
       // BACKEND: PUT /api/bookings/{id}/cancel — user cancels own booking (BookingController.java)

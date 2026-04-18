@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { createBooking } from '../services/bookingService';
 import { BOOKING_RESOURCE_OPTIONS } from '../config/bookingResourceOptions';
 
@@ -17,6 +18,7 @@ function extractMessage(err) {
 }
 
 export default function BookingFormPage() {
+  const navigate = useNavigate();
   const [resourceId, setResourceId] = useState('');
   const [bookingDate, setBookingDate] = useState('');
   const [startTime, setStartTime] = useState('');
@@ -24,10 +26,35 @@ export default function BookingFormPage() {
   const [purpose, setPurpose] = useState('');
   const [expectedAttendees, setExpectedAttendees] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
-  const [submitError, setSubmitError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [submitSuccess, setSubmitSuccess] = useState('');
   const [conflictMessage, setConflictMessage] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+
+  const selectedResourceName = useMemo(() => {
+    const rid = Number(resourceId);
+    const match = BOOKING_RESOURCE_OPTIONS.find((r) => Number(r.id) === rid);
+    return match?.name || '';
+  }, [resourceId]);
+
+  function extractValidationErrors(err) {
+    const d = err?.response?.data;
+    if (!d || typeof d !== 'object') return null;
+    if (d.errors && typeof d.errors === 'object') return d.errors;
+    if (d.fieldErrors && typeof d.fieldErrors === 'object') return d.fieldErrors;
+    if (Array.isArray(d.violations)) {
+      const out = {};
+      d.violations.forEach((v) => {
+        if (v?.field && v?.message && !out[v.field]) out[v.field] = v.message;
+      });
+      return Object.keys(out).length ? out : null;
+    }
+    return null;
+  }
+
+  useEffect(() => {
+    setLoading(false);
+  }, []);
 
   const validate = () => {
     const errors = {};
@@ -51,7 +78,7 @@ export default function BookingFormPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSubmitError('');
+    setError(null);
     setSubmitSuccess('');
     setConflictMessage('');
     const errors = validate();
@@ -60,6 +87,7 @@ export default function BookingFormPage() {
 
     const payload = {
       resourceId: Number(resourceId),
+      resourceName: selectedResourceName,
       bookingDate,
       startTime,
       endTime,
@@ -67,32 +95,27 @@ export default function BookingFormPage() {
       expectedAttendees: Number(expectedAttendees),
     };
 
-    setSubmitting(true);
+    setLoading(true);
     try {
-      // BACKEND: POST /api/bookings - creates a new booking (BookingController.java)
-      const res = await createBooking(payload);
-      setSubmitSuccess('Booking request submitted successfully. You can track it under My bookings.');
-      if (res?.data?.id != null) {
-        setSubmitSuccess((m) => `${m} Reference ID: ${res.data.id}.`);
-      }
-      setResourceId('');
-      setBookingDate('');
-      setStartTime('');
-      setEndTime('');
-      setPurpose('');
-      setExpectedAttendees('');
+      // BACKEND: POST /api/bookings — creates booking, expects 201 Created
+      await createBooking(payload);
+      setSubmitSuccess('Booking created successfully. Redirecting to My Bookings…');
+      navigate('/bookings/my', { replace: true });
     } catch (err) {
       const status = err?.response?.status;
       if (status === 409) {
         setConflictMessage(
-          extractMessage(err) ||
-            'This slot conflicts with another booking or the resource is unavailable.',
+          'This resource is already booked for the selected time. Please choose a different time.',
         );
+      } else if (status === 400) {
+        const validationErrors = extractValidationErrors(err);
+        if (validationErrors) setFieldErrors(validationErrors);
+        setError(extractMessage(err));
       } else {
-        setSubmitError(extractMessage(err));
+        setError(extractMessage(err));
       }
     } finally {
-      setSubmitting(false);
+      setLoading(false);
     }
   };
 
@@ -104,7 +127,7 @@ export default function BookingFormPage() {
       </p>
 
       {submitSuccess && <div className="bookings-alert bookings-alert--success">{submitSuccess}</div>}
-      {submitError && <div className="bookings-alert bookings-alert--error">{submitError}</div>}
+      {error && <div className="bookings-alert bookings-alert--error">{error}</div>}
       {conflictMessage && <div className="bookings-alert bookings-alert--conflict">{conflictMessage}</div>}
 
       <form className="bookings-form" onSubmit={handleSubmit} noValidate>
@@ -196,8 +219,8 @@ export default function BookingFormPage() {
           )}
         </div>
 
-        <button type="submit" className="bookings-btn bookings-btn--primary" disabled={submitting}>
-          {submitting ? 'Submitting…' : 'Submit booking'}
+        <button type="submit" className="bookings-btn bookings-btn--primary" disabled={loading}>
+          {loading ? 'Submitting…' : 'Submit booking'}
         </button>
       </form>
     </div>

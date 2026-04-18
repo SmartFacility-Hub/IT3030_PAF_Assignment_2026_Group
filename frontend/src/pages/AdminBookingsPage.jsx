@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { approveBooking, getAllBookings, rejectBooking } from '../services/bookingService';
 import BookingStatusBadge from '../components/BookingStatusBadge';
 import RejectModal from '../components/RejectModal';
-import { BOOKING_RESOURCE_OPTIONS } from '../config/bookingResourceOptions';
 
 function normalizeList(data) {
   if (Array.isArray(data)) return data;
@@ -20,38 +19,35 @@ function extractMessage(err) {
 function buildQuery(filters) {
   const q = {};
   if (filters.status && filters.status !== 'ALL') q.status = filters.status;
-  if (filters.resourceId) q.resourceId = filters.resourceId;
-  // Align param name with your @RequestParam in BookingController (e.g. bookingDate vs date).
   if (filters.bookingDate) q.bookingDate = filters.bookingDate;
   return q;
 }
 
 export default function AdminBookingsPage() {
   const [status, setStatus] = useState('ALL');
-  const [resourceId, setResourceId] = useState('');
   const [bookingDate, setBookingDate] = useState('');
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [conflictMessage, setConflictMessage] = useState('');
-  const [actionError, setActionError] = useState('');
+  const [error, setError] = useState(null);
+  const [conflictMessage, setConflictMessage] = useState(null);
+  const [actionError, setActionError] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [busyAction, setBusyAction] = useState('');
   const [rejectForId, setRejectForId] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    setError('');
+    setError(null);
     try {
       // BACKEND: GET /api/bookings — admin list with optional filters (BookingController.java)
-      const res = await getAllBookings(buildQuery({ status, resourceId, bookingDate }));
+      const res = await getAllBookings(buildQuery({ status, bookingDate }));
       setBookings(normalizeList(res.data));
     } catch (err) {
       setError(extractMessage(err));
     } finally {
       setLoading(false);
     }
-  }, [status, resourceId, bookingDate]);
+  }, [status, bookingDate]);
 
   useEffect(() => {
     load();
@@ -63,8 +59,8 @@ export default function AdminBookingsPage() {
   };
 
   const handleApprove = async (id) => {
-    setActionError('');
-    setConflictMessage('');
+    setActionError(null);
+    setConflictMessage(null);
     setBusy(id, 'approve');
     try {
       // BACKEND: PUT /api/bookings/{id}/approve — admin approves (BookingController.java)
@@ -83,8 +79,8 @@ export default function AdminBookingsPage() {
 
   const handleRejectConfirm = async (reason) => {
     if (!rejectForId) return;
-    setActionError('');
-    setConflictMessage('');
+    setActionError(null);
+    setConflictMessage(null);
     setBusy(rejectForId, 'reject');
     try {
       // BACKEND: PUT /api/bookings/{id}/reject — admin rejects with reason (BookingController.java)
@@ -125,17 +121,6 @@ export default function AdminBookingsPage() {
           </select>
         </label>
         <label>
-          Resource
-          <select value={resourceId} onChange={(e) => setResourceId(e.target.value)}>
-            <option value="">All resources</option>
-            {BOOKING_RESOURCE_OPTIONS.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
           Date
           <input type="date" value={bookingDate} onChange={(e) => setBookingDate(e.target.value)} />
         </label>
@@ -168,16 +153,14 @@ export default function AdminBookingsPage() {
               </thead>
               <tbody>
                 {bookings.map((b) => {
-                  const id = b.id ?? b.bookingId;
-                  const userName =
-                    b.userName ?? b.requesterName ?? b.fullName ?? b.user?.fullName ?? b.user?.name ?? '—';
-                  const resourceName =
-                    b.resourceName ?? b.resource?.name ?? (b.resourceId != null ? `Resource #${b.resourceId}` : '—');
-                  const date = b.bookingDate ?? b.date ?? '—';
+                  const id = b.id;
+                  const userName = b.userName ?? '—';
+                  const resourceName = b.resourceName ?? '—';
+                  const date = b.bookingDate ?? '—';
                   const start = b.startTime ?? '—';
                   const end = b.endTime ?? '—';
                   const purpose = b.purpose ?? '—';
-                  const attendees = b.expectedAttendees ?? b.attendees ?? '—';
+                  const attendees = b.expectedAttendees ?? '—';
                   const st = (b.status || '').toString().toUpperCase();
                   const showModeration = st === 'PENDING';
 
@@ -232,12 +215,10 @@ export default function AdminBookingsPage() {
 
           <div className="bookings-admin-cards">
             {bookings.map((b) => {
-              const id = b.id ?? b.bookingId;
-              const userName =
-                b.userName ?? b.requesterName ?? b.fullName ?? b.user?.fullName ?? b.user?.name ?? '—';
-              const resourceName =
-                b.resourceName ?? b.resource?.name ?? (b.resourceId != null ? `Resource #${b.resourceId}` : '—');
-              const date = b.bookingDate ?? b.date ?? '—';
+              const id = b.id;
+              const userName = b.userName ?? '—';
+              const resourceName = b.resourceName ?? '—';
+              const date = b.bookingDate ?? '—';
               const start = b.startTime ?? '—';
               const end = b.endTime ?? '—';
               const st = (b.status || '').toString().toUpperCase();
@@ -256,7 +237,7 @@ export default function AdminBookingsPage() {
                     <dt>Purpose</dt>
                     <dd>{b.purpose ?? '—'}</dd>
                     <dt>Attendees</dt>
-                    <dd>{b.expectedAttendees ?? b.attendees ?? '—'}</dd>
+                    <dd>{b.expectedAttendees ?? '—'}</dd>
                     <dt>Status</dt>
                     <dd>
                       <BookingStatusBadge status={b.status} />

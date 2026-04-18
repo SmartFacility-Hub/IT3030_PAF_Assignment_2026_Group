@@ -1,4 +1,4 @@
-import { Link, Outlet } from 'react-router-dom';
+import { NavLink, Outlet } from 'react-router-dom';
 import '../styles/bookings.css';
 
 /**
@@ -8,22 +8,25 @@ export default function BookingsShell() {
   return (
     <div className="bookings-module">
       <header className="bookings-nav">
-        <Link to="/bookings/my" className="bookings-nav-brand">
+        <NavLink to="/bookings/my" className="bookings-nav-brand">
           Bookings — Smart Campus
-        </Link>
+        </NavLink>
         <nav aria-label="Booking module">
           <ul className="bookings-nav-links">
             <li>
-              <Link to="/bookings/new">New request</Link>
+              <NavLink to="/bookings/my" className={({ isActive }) => (isActive ? 'is-active' : undefined)}>
+                My Bookings
+              </NavLink>
             </li>
             <li>
-              <Link to="/bookings/my">My bookings</Link>
+              <NavLink to="/bookings/new" className={({ isActive }) => (isActive ? 'is-active' : undefined)}>
+                New Booking
+              </NavLink>
             </li>
             <li>
-              <Link to="/bookings/admin">Admin</Link>
-            </li>
-            <li>
-              <Link to="/">Hub home</Link>
+              <NavLink to="/bookings/admin" className={({ isActive }) => (isActive ? 'is-active' : undefined)}>
+                Admin
+              </NavLink>
             </li>
           </ul>
         </nav>

@@ -1,33 +1,28 @@
 import axios from 'axios';
 
-/**
- * Axios instance for the Spring Boot API.
- * Set REACT_APP_API_URL in .env when the UI is not served from the same origin as the API
- * (e.g. REACT_APP_API_URL=http://localhost:8080).
- */
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || '',
+  baseURL: '', // empty — uses proxy to localhost:8081
   headers: { 'Content-Type': 'application/json' },
-  withCredentials: true,
+  withCredentials: false, // no auth for now
 });
 
-// POST /api/bookings — Create a new booking request
-export const createBooking = (bookingData) => api.post('/api/bookings', bookingData);
+// BACKEND: POST /api/bookings — BookingController.createBooking()
+export const createBooking = (data) => api.post('/api/bookings', data);
 
-// GET /api/bookings/my — Get bookings for the logged-in user
+// BACKEND: GET /api/bookings/my — BookingController.getMyBookings()
 export const getMyBookings = () => api.get('/api/bookings/my');
 
-// GET /api/bookings — Admin: get all bookings (with optional filters)
-export const getAllBookings = (filters) => api.get('/api/bookings', { params: filters });
+// BACKEND: GET /api/bookings — BookingController.getAllBookings()
+export const getAllBookings = (params) => api.get('/api/bookings', { params });
 
-// GET /api/bookings/{id} — Get a single booking by ID
+// BACKEND: GET /api/bookings/{id} — BookingController.getBookingById()
 export const getBookingById = (id) => api.get(`/api/bookings/${id}`);
 
-// PUT /api/bookings/{id}/approve — Admin approves a booking
+// BACKEND: PUT /api/bookings/{id}/approve — BookingController.approveBooking()
 export const approveBooking = (id) => api.put(`/api/bookings/${id}/approve`);
 
-// PUT /api/bookings/{id}/reject — Admin rejects a booking with a reason
+// BACKEND: PUT /api/bookings/{id}/reject — BookingController.rejectBooking()
 export const rejectBooking = (id, reason) => api.put(`/api/bookings/${id}/reject`, { reason });
 
-// PUT /api/bookings/{id}/cancel — User cancels their own booking
+// BACKEND: PUT /api/bookings/{id}/cancel — BookingController.cancelBooking()
 export const cancelBooking = (id) => api.put(`/api/bookings/${id}/cancel`);
