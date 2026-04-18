@@ -621,11 +621,34 @@ function CreateTicketModal({ onClose, onCreated }) {
     resourceLocation: "", category: "IT_EQUIPMENT", description: "",
     priority: "MEDIUM", contactDetails: "",
   });
+  const [locations, setLocations] = useState([]);
+  const [loadingLocations, setLoadingLocations] = useState(true);
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleField = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setLoadingLocations(true);
+        const res = await facilityService.getAll();
+        const uniqueLocations = [...new Set(
+          (res.data || [])
+            .map(f => f?.location?.trim())
+            .filter(Boolean)
+        )].sort((a, b) => a.localeCompare(b));
+        if (mounted) setLocations(uniqueLocations);
+      } catch (_) {
+        if (mounted) setLocations([]);
+      } finally {
+        if (mounted) setLoadingLocations(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   const handleFiles = e => {
     const picked = Array.from(e.target.files).slice(0, 3 - files.length);
@@ -664,8 +687,14 @@ function CreateTicketModal({ onClose, onCreated }) {
           <div className="ud-form-group">
             <label className="ud-label">Resource / Location *</label>
             <input className="ud-input" name="resourceLocation" required
-              placeholder="e.g. Lab 3, Building A"
+              list="ticket-location-options"
+              placeholder={loadingLocations ? "Loading locations…" : "Search and select a location"}
               value={form.resourceLocation} onChange={handleField} />
+            <datalist id="ticket-location-options">
+              {locations.map(location => (
+                <option key={location} value={location} />
+              ))}
+            </datalist>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div className="ud-form-group">
