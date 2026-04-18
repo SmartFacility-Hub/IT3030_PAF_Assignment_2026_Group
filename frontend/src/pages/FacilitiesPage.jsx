@@ -382,17 +382,37 @@ const EMPTY_FORM = { name: "", type: "LECTURE_HALL", capacity: "", location: "",
 function useTheme() {
   const getPref = () => window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   const [theme, setTheme] = useState(getPref);
+
   useEffect(() => {
     const root = document.documentElement;
     Object.entries(themes[theme]).forEach(([k, v]) => root.style.setProperty(k, v));
   }, [theme]);
-  const toggle = () => setTheme(t => t === "dark" ? "light" : "dark");
-  return { theme, toggle };
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleChange = (event) => setTheme(event.matches ? "dark" : "light");
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener("change", handleChange);
+    } else if (mediaQuery.addListener) {
+      mediaQuery.addListener(handleChange);
+    }
+
+    return () => {
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener("change", handleChange);
+      } else if (mediaQuery.removeListener) {
+        mediaQuery.removeListener(handleChange);
+      }
+    };
+  }, []);
+
+  return { theme };
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function FacilitiesPage() {
-  const { theme, toggle } = useTheme();
+  useTheme();
   const { user, logout }  = useAuth();
   const navigate          = useNavigate();
 
@@ -586,9 +606,6 @@ export default function FacilitiesPage() {
           Facilities <span>/ Catalogue</span>
         </div>
         <div className="topbar-actions">
-          <button className="icon-btn" onClick={toggle} title="Toggle theme">
-            {theme === "dark" ? "☀️" : "🌙"}
-          </button>
           <button className="icon-btn" title="Notifications">🔔</button>
         </div>
       </header>
