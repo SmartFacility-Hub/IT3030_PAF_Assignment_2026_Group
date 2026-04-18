@@ -1,14 +1,13 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
+import AdminLayout from "./components/AdminLayout";
 import HomePage from "./pages/HomePage";
 import AdminDashboard from "./pages/AdminDashboard";
 import UserDashboard from "./pages/UserDashboard";
 import TechnicianDashboard from "./pages/TechnicianDashboard";
 import OAuthCallback from "./pages/OAuthCallback";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
-import LectureDashboard from "./pages/Lecturerdashboard";
-import StudentDashboard from "./pages/Studentdashboard";
 import FacilitiesPage from "./pages/FacilitiesPage";
 
 function App() {
@@ -31,26 +30,6 @@ function App() {
             }
           />
 
-          {/* Protected: ADMIN only */}
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute requiredRole="ROLE_ADMIN">
-                <AdminDashboard />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* Protected: ADMIN only — Facilities */}
-          <Route
-            path="/admin/facilities"
-            element={
-              <ProtectedRoute requiredRole="ROLE_ADMIN">
-                <FacilitiesPage />
-              </ProtectedRoute>
-            }
-          />
-
           {/* Protected: TECHNICIAN or ADMIN */}
           <Route
             path="/technician"
@@ -60,6 +39,25 @@ function App() {
               </ProtectedRoute>
             }
           />
+
+          {/* ── ALL ADMIN PAGES share AdminLayout (static sidebar) ── */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute requiredRole="ROLE_ADMIN">
+                <AdminLayout />
+              </ProtectedRoute>
+            }
+          >
+            {/* index = /admin */}
+            <Route index element={<AdminDashboard />} />
+            {/* /admin/facilities */}
+            <Route path="facilities" element={<FacilitiesPage />} />
+            {/* Add future pages here — same pattern */}
+            {/* <Route path="bookings"   element={<BookingsPage />} /> */}
+            {/* <Route path="incidents"  element={<IncidentsPage />} /> */}
+          </Route>
+
         </Routes>
       </Router>
     </AuthProvider>
