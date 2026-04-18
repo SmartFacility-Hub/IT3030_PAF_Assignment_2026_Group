@@ -288,6 +288,25 @@ const styles = `
   .ud-textarea { resize: vertical; min-height: 80px; }
   .ud-select { cursor: pointer; }
   .ud-select option { background: var(--bg-surface); }
+  .ud-search-wrap { position: relative; }
+  .ud-search-list {
+    position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 25;
+    max-height: 180px; overflow-y: auto;
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); box-shadow: var(--shadow-card);
+  }
+  .ud-search-item {
+    width: 100%; border: none; background: transparent; cursor: pointer;
+    text-align: left; color: var(--text-secondary); font-family: var(--font-body);
+    font-size: 13px; padding: 10px 12px; transition: background 0.15s, color 0.15s;
+  }
+  .ud-search-item:hover {
+    background: var(--bg-elevated); color: var(--text-primary);
+  }
+  .ud-search-empty {
+    padding: 10px 12px; font-size: 12px; color: var(--text-muted);
+    font-family: var(--font-mono);
+  }
   .ud-file-input {
     display: none;
   }
@@ -623,11 +642,16 @@ function CreateTicketModal({ onClose, onCreated }) {
   });
   const [locations, setLocations] = useState([]);
   const [loadingLocations, setLoadingLocations] = useState(true);
+  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleField = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+  const locationQuery = form.resourceLocation.trim().toLowerCase();
+  const filteredLocations = locations
+    .filter(location => !locationQuery || location.toLowerCase().includes(locationQuery))
+    .slice(0, 8);
 
   useEffect(() => {
     let mounted = true;
@@ -686,15 +710,43 @@ function CreateTicketModal({ onClose, onCreated }) {
         <form onSubmit={handleSubmit}>
           <div className="ud-form-group">
             <label className="ud-label">Resource / Location *</label>
-            <input className="ud-input" name="resourceLocation" required
-              list="ticket-location-options"
-              placeholder={loadingLocations ? "Loading locations…" : "Search and select a location"}
-              value={form.resourceLocation} onChange={handleField} />
-            <datalist id="ticket-location-options">
-              {locations.map(location => (
-                <option key={location} value={location} />
-              ))}
-            </datalist>
+            <div className="ud-search-wrap">
+              <input
+                className="ud-input"
+                name="resourceLocation"
+                required
+                autoComplete="off"
+                placeholder={loadingLocations ? "Loading locations…" : "Search and select a location"}
+                value={form.resourceLocation}
+                onFocus={() => setShowLocationSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowLocationSuggestions(false), 120)}
+                onChange={(e) => {
+                  handleField(e);
+                  setShowLocationSuggestions(true);
+                }}
+              />
+              {showLocationSuggestions && !loadingLocations && (
+                <div className="ud-search-list">
+                  {filteredLocations.length > 0 ? (
+                    filteredLocations.map(location => (
+                      <button
+                        key={location}
+                        type="button"
+                        className="ud-search-item"
+                        onMouseDown={() => {
+                          setForm(f => ({ ...f, resourceLocation: location }));
+                          setShowLocationSuggestions(false);
+                        }}
+                      >
+                        {location}
+                      </button>
+                    ))
+                  ) : (
+                    <div className="ud-search-empty">No matching locations</div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div className="ud-form-group">
