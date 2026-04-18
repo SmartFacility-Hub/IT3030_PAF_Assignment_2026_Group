@@ -638,7 +638,7 @@ function EditBookingModal({ booking, onClose, onSaved }) {
 function CreateTicketModal({ onClose, onCreated }) {
   const [form, setForm] = useState({
     resourceLocation: "", category: "IT_EQUIPMENT", description: "",
-    priority: "MEDIUM", contactDetails: "",
+    priority: "MEDIUM",
   });
   const [locations, setLocations] = useState([]);
   const [loadingLocations, setLoadingLocations] = useState(true);
@@ -773,12 +773,6 @@ function CreateTicketModal({ onClose, onCreated }) {
               value={form.description} onChange={handleField} />
           </div>
           <div className="ud-form-group">
-            <label className="ud-label">Contact Details *</label>
-            <input className="ud-input" name="contactDetails" required
-              placeholder="e.g. your@email.lk or ext. 1234"
-              value={form.contactDetails} onChange={handleField} />
-          </div>
-          <div className="ud-form-group">
             <label className="ud-label">Image Attachments (up to 3)</label>
             {files.length < 3 && (
               <>
@@ -877,8 +871,8 @@ function TicketDetailPanel({ ticket, onClose, onRefresh }) {
             <div className="ud-detail-value">{ticket.description}</div>
           </div>
           <div className="ud-detail-field">
-            <div className="ud-detail-label">Contact</div>
-            <div className="ud-detail-value">{ticket.contactDetails}</div>
+            <div className="ud-detail-label">Created By</div>
+            <div className="ud-detail-value">{ticket.createdBy}</div>
           </div>
           {ticket.assignedTo && (
             <div className="ud-detail-field">

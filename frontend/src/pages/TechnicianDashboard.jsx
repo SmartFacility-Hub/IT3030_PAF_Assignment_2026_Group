@@ -445,8 +445,8 @@ function TicketDetailPanel({ ticket, onClose }) {
             <div className="td-detail-value">{ticket.category?.replace("_"," ")}</div>
           </div>
           <div className="td-detail-field">
-            <div className="td-detail-label">Contact</div>
-            <div className="td-detail-value">{ticket.contactDetails}</div>
+            <div className="td-detail-label">Created By</div>
+            <div className="td-detail-value">{ticket.createdBy}</div>
           </div>
           {ticket.resolutionNotes && (
             <div className="td-detail-field">

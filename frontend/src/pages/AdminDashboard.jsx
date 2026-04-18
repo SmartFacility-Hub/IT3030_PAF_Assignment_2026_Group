@@ -631,8 +631,8 @@ function TicketDetailPanel({ ticket, onClose, onRefresh }) {
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
              <div className="adm-detail-field" style={{ margin: 0 }}>
-               <div className="adm-detail-label">Contact</div>
-               <div className="adm-detail-value">{ticket.contactDetails}</div>
+               <div className="adm-detail-label">Created By</div>
+               <div className="adm-detail-value">{ticket.createdBy}</div>
              </div>
              <div className="adm-detail-field" style={{ margin: 0 }}>
                <div className="adm-detail-label">Assigned</div>
