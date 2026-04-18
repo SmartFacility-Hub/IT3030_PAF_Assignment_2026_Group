@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api, { ticketApi, bookingApi, API_BASE_URL } from "../services/api";
 import facilityService from "../services/facilityService";
+import NotificationBell from "../components/NotificationBell";
 
 // ─── Theme Definitions ────────────────────────────────────────────────────────
 const themes = {
@@ -1024,6 +1025,7 @@ export default function UserDashboard() {
               ＋ New Ticket
             </button>
           )}
+          <NotificationBell />
           <button className="ud-theme-toggle" onClick={toggle} title="Toggle theme">
             {themes[theme]["--toggle-icon"]}
           </button>
