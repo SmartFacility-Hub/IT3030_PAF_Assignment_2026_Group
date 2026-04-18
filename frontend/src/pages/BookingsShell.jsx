@@ -1,36 +1,37 @@
-import { NavLink, Outlet } from 'react-router-dom';
-import '../styles/bookings.css';
+import { useAuth } from '../context/AuthContext';
+import AdminLayout from '../components/AdminLayout';
+import StudentLayout from '../components/StudentLayout';
+import LecturerLayout from '../components/LecturerLayout';
+import { Outlet } from 'react-router-dom';
 
 /**
- * Layout wrapper for Module B routes; applies orange theme scope and local nav.
+ * Shell component that wraps the booking pages with the appropriate sidebar layout
+ * based on the current user's role. This ensures the sidebar remains visible 
+ * when navigating to any booking-related route.
  */
 export default function BookingsShell() {
+  const { user } = useAuth();
+  
+  const role = user?.role || (user?.roles && user.roles[0]) || '';
+  const isAdmin = role.includes('ADMIN');
+  const isStudent = role.includes('STUDENT');
+  const isLecturer = role.includes('LECTURER');
+
+  if (isAdmin) {
+    return <AdminLayout />;
+  }
+  
+  if (isStudent) {
+    return <StudentLayout />;
+  }
+  
+  if (isLecturer) {
+    return <LecturerLayout />;
+  }
+
+  // Fallback
   return (
-    <div className="bookings-module">
-      <header className="bookings-nav">
-        <NavLink to="/bookings/my" className="bookings-nav-brand">
-          Bookings — Smart Campus
-        </NavLink>
-        <nav aria-label="Booking module">
-          <ul className="bookings-nav-links">
-            <li>
-              <NavLink to="/bookings/my" className={({ isActive }) => (isActive ? 'is-active' : undefined)}>
-                My Bookings
-              </NavLink>
-            </li>
-            <li>
-              <NavLink to="/bookings/new" className={({ isActive }) => (isActive ? 'is-active' : undefined)}>
-                New Booking
-              </NavLink>
-            </li>
-            <li>
-              <NavLink to="/bookings/admin" className={({ isActive }) => (isActive ? 'is-active' : undefined)}>
-                Admin
-              </NavLink>
-            </li>
-          </ul>
-        </nav>
-      </header>
+    <div className="bookings-module" style={{padding: '24px'}}>
       <main className="bookings-main">
         <Outlet />
       </main>
