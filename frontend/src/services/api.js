@@ -86,5 +86,13 @@ export const adminApi = {
   updateRoles: (userId, roles) => api.put(`/api/admin/users/${userId}/roles`, { roles }),
 };
 
+// ── Booking API helpers ──────────────────────────────────────────────────────
+export const bookingApi = {
+  fetchMine: () => api.get('/api/bookings'),
+  create: (dto) => api.post('/api/bookings', dto),
+  update: (id, dto) => api.put(`/api/bookings/${id}`, dto),
+  cancel: (id) => api.delete(`/api/bookings/${id}`),
+};
+
 export default api;
 export { API_BASE_URL };
