@@ -270,7 +270,6 @@ export default function FacilitiesPage() {
       {/* Page Header */}
       <div className="page-header fade-in">
         <div>
-          <div className="page-label">Module A</div>
           <div className="page-title">Facilities & Assets Catalogue</div>
           <div className="page-subtitle">Manage bookable resources — lecture halls, labs, meeting rooms, and equipment</div>
         </div>
