@@ -8,6 +8,7 @@ import com.smartfacility.app.repository.UserRepository;
 import com.smartfacility.app.security.JwtUtils;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -20,13 +21,16 @@ public class AuthController {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final JwtUtils jwtUtils;
+    private final PasswordEncoder passwordEncoder;
 
     public AuthController(UserRepository userRepository,
                            RoleRepository roleRepository,
-                           JwtUtils jwtUtils) {
+                           JwtUtils jwtUtils,
+                           PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.jwtUtils = jwtUtils;
+        this.passwordEncoder = passwordEncoder;
     }
 
     /**
@@ -58,6 +62,106 @@ public class AuthController {
         response.put("picture", user.getPicture());
         response.put("roles", roles);
         response.put("createdAt", user.getCreatedAt());
+
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * POST /api/auth/register
+     * Register a new account using email + password.
+     * Expects JSON body: { "name": "...", "email": "...", "password": "..." }
+     */
+    @PostMapping("/register")
+    public ResponseEntity<?> register(@RequestBody Map<String, String> body) {
+        String name = body.get("name");
+        String email = body.get("email");
+        String password = body.get("password");
+
+        if (name == null || name.isBlank() || email == null || email.isBlank()
+                || password == null || password.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Name, email and password are required"));
+        }
+
+        if (password.length() < 6) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Password must be at least 6 characters"));
+        }
+
+        if (userRepository.existsByEmail(email)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "An account with this email already exists"));
+        }
+
+        User user = new User(email, name, passwordEncoder.encode(password));
+
+        // Assign default ROLE_USER
+        Set<Role> roles = new HashSet<>();
+        roleRepository.findByName(ERole.ROLE_USER).ifPresent(roles::add);
+        user.setRoles(roles);
+
+        user = userRepository.save(user);
+
+        // Generate JWT
+        List<String> roleNames = user.getRoles().stream()
+                .map(r -> r.getName().name())
+                .toList();
+
+        String token = jwtUtils.generateToken(email, name, "", user.getId(), roleNames);
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("token", token);
+        response.put("id", user.getId());
+        response.put("email", user.getEmail());
+        response.put("name", user.getName());
+        response.put("picture", "");
+        response.put("roles", roleNames);
+
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * POST /api/auth/login
+     * Log in with email + password.
+     * Expects JSON body: { "email": "...", "password": "..." }
+     */
+    @PostMapping("/login")
+    public ResponseEntity<?> login(@RequestBody Map<String, String> body) {
+        String email = body.get("email");
+        String password = body.get("password");
+
+        if (email == null || email.isBlank() || password == null || password.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Email and password are required"));
+        }
+
+        Optional<User> userOpt = userRepository.findByEmail(email);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(401).body(Map.of("error", "Invalid email or password"));
+        }
+
+        User user = userOpt.get();
+
+        if (user.getPassword() == null || user.getPassword().isBlank()) {
+            return ResponseEntity.status(401).body(
+                Map.of("error", "This account uses Google sign-in. Please use Google to log in."));
+        }
+
+        if (!passwordEncoder.matches(password, user.getPassword())) {
+            return ResponseEntity.status(401).body(Map.of("error", "Invalid email or password"));
+        }
+
+        // Generate JWT
+        List<String> roles = user.getRoles().stream()
+                .map(r -> r.getName().name())
+                .toList();
+
+        String token = jwtUtils.generateToken(email, user.getName(),
+                user.getPicture() != null ? user.getPicture() : "", user.getId(), roles);
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("token", token);
+        response.put("id", user.getId());
+        response.put("email", user.getEmail());
+        response.put("name", user.getName());
+        response.put("picture", user.getPicture() != null ? user.getPicture() : "");
+        response.put("roles", roles);
 
         return ResponseEntity.ok(response);
     }
