@@ -750,6 +750,7 @@ export default function AdminDashboard() {
     name ? name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase() : "?";
 
   return (
+    <>
     <div style={{ padding: "32px", minHeight: "calc(100vh - 60px)" }}>
       <style dangerouslySetInnerHTML={{ __html: styles }} />
 
@@ -1147,7 +1148,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      </main>
+      </div>
 
       {/* Assign Technician Modal */}
       {assigning && (
