@@ -1024,7 +1024,13 @@ export default function AdminDashboard() {
                 <div
                   key={item.id}
                   className={`nav-item${activeNav === item.id ? " active" : ""}`}
-                  onClick={() => setActiveNav(item.id)}
+                  onClick={() => {
+                    if (item.id === "facilities") {
+                      navigate("/admin/facilities");
+                    } else {
+                      setActiveNav(item.id);
+                    }
+                  }}
                 >
                   <span className="nav-item-icon">{item.icon}</span>
                   <span className="nav-item-label">{item.label}</span>
