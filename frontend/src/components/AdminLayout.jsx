@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import NotificationBell from "./NotificationBell";
 
 const themes = {
   dark: {
@@ -390,9 +391,7 @@ export default function AdminLayout() {
           <span className="search-kbd">⌘K</span>
         </div>
         <div className="topbar-actions">
-          <button className="icon-btn" title="Notifications">
-            🔔 <span className="notif-dot" />
-          </button>
+          <NotificationBell />
           <button className="icon-btn" title="Help">❓</button>
         </div>
       </header>
