@@ -420,7 +420,7 @@ export default function AdminDashboard() {
         <div className="page-header-right">
           <button className="btn-ghost">⬇ Export Report</button>
           <button className="btn-primary" onClick={() => navigate("/admin/facilities")}>
-            🏛️ Manage Facilities
+            🏛️ Manage Resources
           </button>
         </div>
       </div>

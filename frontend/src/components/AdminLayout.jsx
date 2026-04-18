@@ -237,7 +237,6 @@ const styles = `
 const breadcrumbs = {
   "/admin":             { title: "Dashboard",              sub: "Overview" },
   "/admin/facilities":  { title: "Facilities",             sub: "Catalogue" },
-  "/admin/assets":      { title: "Assets",                 sub: "Inventory" },
   "/admin/bookings":    { title: "Bookings",               sub: "Management" },
   "/admin/incidents":   { title: "Incidents",              sub: "Tickets" },
   "/admin/users":       { title: "Users & Roles",          sub: "Management" },
@@ -249,7 +248,6 @@ const breadcrumbs = {
 const routeToNavId = {
   "/admin":             "dashboard",
   "/admin/facilities":  "facilities",
-  "/admin/assets":      "assets",
   "/admin/bookings":    "bookings",
   "/admin/incidents":   "incidents",
   "/admin/technicians": "technicians",
@@ -270,8 +268,7 @@ const navSections = [
   {
     label: "Resources",
     items: [
-      { icon: "🏛️", label: "Facilities",  id: "facilities",  route: "/admin/facilities" },
-      { icon: "🖥️", label: "Assets",      id: "assets",      route: "/admin/assets" },
+      { icon: "🏛️", label: "Facilities & Assets",  id: "facilities",  route: "/admin/facilities" },
     ],
   },
   {

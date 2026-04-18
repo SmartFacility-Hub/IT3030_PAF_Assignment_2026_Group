@@ -275,7 +275,7 @@ export default function FacilitiesPage() {
         </div>
         <div className="page-header-right">
           <button className="btn-ghost" onClick={fetchFacilities}>↻ Refresh</button>
-          <button className="btn-primary" onClick={openCreate}>＋ Add Facility</button>
+          <button className="btn-primary" onClick={openCreate}>＋ Add Resoruces</button>
         </div>
       </div>
 
