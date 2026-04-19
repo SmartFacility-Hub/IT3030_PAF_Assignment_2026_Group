@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import api, { ticketApi } from "../services/api";
+import api, { ticketApi, adminApi } from "../services/api";
 import {
   STATUS_BG,
   STATUS_CLR,
@@ -491,6 +491,105 @@ function Donut({ segments }) {
   );
 }
 
+// ─── User Modals ──────────────────────────────────────────────────────────────
+function CreateUserModal({ onClose, onCreated }) {
+  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async e => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await adminApi.createUser(form);
+      onCreated();
+    } catch (err) {
+      setError(err.response?.data?.error || "Failed to create user.");
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div className="adm-modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="adm-modal">
+        <div className="adm-modal-title">👤 Create User</div>
+        {error && <div className="adm-error" style={{ color: "var(--status-red)", marginBottom: 10 }}>{error}</div>}
+        <form onSubmit={handleSubmit}>
+          <div className="adm-form-group">
+            <label className="adm-label" style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase" }}>Name</label>
+            <input className="adm-input" required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} 
+              style={{ width: "100%", padding: "8px", background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--text-primary)" }}/>
+          </div>
+          <div className="adm-form-group" style={{ marginTop: 10 }}>
+            <label className="adm-label" style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase" }}>Email</label>
+            <input className="adm-input" type="email" required value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} 
+              style={{ width: "100%", padding: "8px", background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--text-primary)" }}/>
+          </div>
+          <div className="adm-form-group" style={{ marginTop: 10 }}>
+            <label className="adm-label" style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase" }}>Password</label>
+            <input className="adm-input" type="password" required value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} 
+              style={{ width: "100%", padding: "8px", background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--text-primary)" }}/>
+          </div>
+          <div className="adm-modal-footer" style={{ display: "flex", gap: "10px", marginTop: "20px", justifyContent: "flex-end" }}>
+            <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn-primary" disabled={loading}>
+              {loading ? "Creating…" : "Create"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function EditUserModal({ user, onClose, onSaved }) {
+  const [form, setForm] = useState({ name: user.name, email: user.email, password: "" });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async e => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await adminApi.updateUser(user.id, form);
+      onSaved();
+    } catch (err) {
+      setError(err.response?.data?.error || "Failed to update user.");
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div className="adm-modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="adm-modal">
+        <div className="adm-modal-title">✏️ Edit User</div>
+        {error && <div className="adm-error" style={{ color: "var(--status-red)", marginBottom: 10 }}>{error}</div>}
+        <form onSubmit={handleSubmit}>
+          <div className="adm-form-group">
+            <label className="adm-label" style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase" }}>Name</label>
+            <input className="adm-input" required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} 
+              style={{ width: "100%", padding: "8px", background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--text-primary)" }}/>
+          </div>
+          <div className="adm-form-group" style={{ marginTop: 10 }}>
+            <label className="adm-label" style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase" }}>Email</label>
+            <input className="adm-input" type="email" required value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} 
+              style={{ width: "100%", padding: "8px", background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--text-primary)" }}/>
+          </div>
+          <div className="adm-form-group" style={{ marginTop: 10 }}>
+            <label className="adm-label" style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase" }}>Password (Leave blank to keep current)</label>
+            <input className="adm-input" type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} 
+              style={{ width: "100%", padding: "8px", background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--text-primary)" }}/>
+          </div>
+          <div className="adm-modal-footer" style={{ display: "flex", gap: "10px", marginTop: "20px", justifyContent: "flex-end" }}>
+            <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn-primary" disabled={loading}>
+              {loading ? "Saving…" : "Save"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -503,6 +602,18 @@ export default function AdminDashboard() {
    const [assigning, setAssigning] = useState(null);  // ticket to assign
   const [statusUpdating, setStatusUpdating] = useState(null); // ticket to update status
   const [selectedTicket, setSelectedTicket] = useState(null);
+  const [showCreateUser, setShowCreateUser] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+
+  const handleDeleteUser = async (user) => {
+    if (!window.confirm(`Are you sure you want to delete ${user.name}?`)) return;
+    try {
+      await adminApi.deleteUser(user.id);
+      fetchUsers();
+    } catch (err) {
+      alert("Failed to delete user: " + (err.response?.data?.error || err.message));
+    }
+  };
 
   const kpi = useCounter({ bookings: 1247, assets: 382, uptime: 99 });
   const openCount = tickets.filter(t => t.status === "OPEN" || t.status === "IN_PROGRESS").length;
@@ -899,9 +1010,12 @@ export default function AdminDashboard() {
         <div className="card-header">
           <div>
             <div className="card-title"><span className="card-title-icon">👥</span> Users & Roles</div>
-            <div className="card-subtitle">Manage platform users and their permissions</div>
+            <div className="card-subtitle">Manage platform users, passwords, and their permissions</div>
           </div>
-          <button className="card-action" onClick={fetchUsers}>Refresh →</button>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <button className="card-action" onClick={() => setShowCreateUser(true)}>+ Create User</button>
+            <button className="card-action" onClick={fetchUsers}>Refresh →</button>
+          </div>
         </div>
         {usersLoading ? (
           <div style={{ padding: "32px 22px", textAlign: "center", color: "var(--text-muted)", fontFamily: "var(--font-mono)", fontSize: "12px" }}>
@@ -943,6 +1057,9 @@ export default function AdminDashboard() {
                     </td>
                     <td>
                       <div style={{ display: "flex", gap: "4px" }}>
+                        <button className="approve-btn" style={{ background: "var(--bg-elevated)", color: "var(--text-primary)", borderColor: "var(--border)" }} onClick={() => setEditingUser(u)}>Edit</button>
+                        <button className="reject-btn" onClick={() => handleDeleteUser(u)}>Delete</button>
+
                         {!u.roles?.includes("ROLE_ADMIN") && (
                           <button className="approve-btn" onClick={() => handleRoleChange(u.id, [...(u.roles || []), "ROLE_ADMIN"])}>+Admin</button>
                         )}
@@ -952,7 +1069,7 @@ export default function AdminDashboard() {
                             onClick={() => handleRoleChange(u.id, [...(u.roles || []), "ROLE_TECHNICIAN"])}>+Tech</button>
                         )}
                         {u.roles?.length > 1 && (
-                          <button className="reject-btn" onClick={() => handleRoleChange(u.id, ["ROLE_USER"])}>Reset</button>
+                          <button className="reject-btn" style={{ background: "transparent", color: "var(--text-muted)" }} onClick={() => handleRoleChange(u.id, ["ROLE_USER"])}>Reset Roles</button>
                         )}
                       </div>
                     </td>
@@ -988,6 +1105,20 @@ export default function AdminDashboard() {
       </div>
 
       </div>
+
+      {showCreateUser && (
+        <CreateUserModal
+          onClose={() => setShowCreateUser(false)}
+          onCreated={() => { setShowCreateUser(false); fetchUsers(); }}
+        />
+      )}
+      {editingUser && (
+        <EditUserModal
+          user={editingUser}
+          onClose={() => setEditingUser(null)}
+          onSaved={() => { setEditingUser(null); fetchUsers(); }}
+        />
+      )}
     </>
   );
 }
