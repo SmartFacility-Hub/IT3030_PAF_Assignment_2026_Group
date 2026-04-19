@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getAllBookings } from "../services/bookingService";
+import NotificationBell from "./NotificationBell";
+import { ticketApi } from "../services/api";
 
 const themes = {
   dark: {
@@ -276,7 +278,7 @@ const navSections = [
     label: "Operations",
     items: [
       { icon: "📅", label: "Bookings",     id: "bookings",    route: "/bookings/admin",    badge: "4" },
-      { icon: "🔧", label: "Incidents",    id: "incidents",   route: "/admin/incidents",   badge: "9", badgeRed: true },
+      { icon: "🔧", label: "Incidents",    id: "incidents",   route: "/admin/incidents",   badgeRed: true },
       { icon: "👷", label: "Technicians",  id: "technicians", route: "/admin/technicians" },
     ],
   },
@@ -295,6 +297,7 @@ export default function AdminLayout() {
   const navigate         = useNavigate();
   const location         = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [incidentBadge, setIncidentBadge] = useState(null);
   const [theme, setTheme] = useState(
     window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light"
   );
@@ -306,6 +309,22 @@ export default function AdminLayout() {
       const data = Array.isArray(res.data) ? res.data : (res.data?.content || []);
       setPendingBookings(data.filter(b => b.status === 'PENDING').length);
     }).catch(err => console.error("Failed to load bookings", err));
+  }, [location.pathname]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await ticketApi.fetchAll();
+        if (cancelled) return;
+        const list = res.data || [];
+        const n = list.filter((t) => t.status === "OPEN" || t.status === "IN_PROGRESS").length;
+        setIncidentBadge(String(n));
+      } catch {
+        if (!cancelled) setIncidentBadge("—");
+      }
+    })();
+    return () => { cancelled = true; };
   }, [location.pathname]);
 
   // Apply theme tokens
@@ -361,6 +380,8 @@ export default function AdminLayout() {
                 let badge = item.badge;
                 if (item.id === 'bookings') badge = pendingBookings > 0 ? pendingBookings.toString() : null;
                 
+                if (item.id === "incidents" && incidentBadge != null) badge = incidentBadge;
+                
                 return (
                 <div
                   key={item.id}
@@ -409,9 +430,7 @@ export default function AdminLayout() {
           <span className="search-kbd">⌘K</span>
         </div>
         <div className="topbar-actions">
-          <button className="icon-btn" title="Notifications">
-            🔔 <span className="notif-dot" />
-          </button>
+          <NotificationBell />
           <button className="icon-btn" title="Help">❓</button>
         </div>
       </header>

@@ -11,28 +11,24 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import jakarta.servlet.http.HttpServletRequest;
-
-import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.Map;
 
 @RestControllerAdvice(basePackages = "com.smartfacility.app.incidentservice")
 public class IncidentGlobalExceptionHandler {
 
-    //404 - not found
+    // 404 - not found
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<Map<String, Object>> handleNotFound(
-        ResourceNotFoundException ex, HttpServletRequest request
-    ){
+            ResourceNotFoundException ex, HttpServletRequest request) {
         return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage(), request.getRequestURI());
     }
 
-    //400 - Bad request
+    // 400 - Bad request
     @ExceptionHandler(BadRequestException.class)
     public ResponseEntity<Map<String, Object>> handleBadRequest(
-        BadRequestException ex, HttpServletRequest request){
-            return buildResponse (HttpStatus.BAD_REQUEST, ex.getMessage(), request.getRequestURI());
-        }
+            BadRequestException ex, HttpServletRequest request) {
+        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request.getRequestURI());
+    }
 
     // 403 - Unauthorized action
     @ExceptionHandler(UnauthorizedException.class)
@@ -40,7 +36,8 @@ public class IncidentGlobalExceptionHandler {
             UnauthorizedException ex, HttpServletRequest request) {
         return buildResponse(HttpStatus.FORBIDDEN, ex.getMessage(), request.getRequestURI());
     }
-      // 400 - Validation errors (@Valid failures)
+
+    // 400 - Validation errors (@Valid failures)
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidation(
             MethodArgumentNotValidException ex, HttpServletRequest request) {

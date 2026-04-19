@@ -49,6 +49,9 @@ export const ticketApi = {
   // Get one ticket by id
   getById: (id) => api.get(`/api/tickets/${id}`),
 
+  // Permanently delete ticket (admin only; backend allows CLOSED or REJECTED)
+  delete: (id) => api.delete(`/api/tickets/${id}`),
+
   // Update ticket status (+ optional reason / resolutionNotes)
   updateStatus: (id, dto) => api.put(`/api/tickets/${id}/status`, dto),
 
@@ -83,6 +86,10 @@ export const ticketApi = {
 // ── Admin API helpers ───────────────────────────────────────────────────────
 export const adminApi = {
   fetchUsers: () => api.get('/api/admin/users'),
+  createUser: (dto) => api.post('/api/admin/users', dto),
+  getUser: (userId) => api.get(`/api/admin/users/${userId}`),
+  updateUser: (userId, dto) => api.put(`/api/admin/users/${userId}`, dto),
+  deleteUser: (userId) => api.delete(`/api/admin/users/${userId}`),
   updateRoles: (userId, roles) => api.put(`/api/admin/users/${userId}/roles`, { roles }),
 };
 
@@ -92,6 +99,38 @@ export const bookingApi = {
   create: (dto) => api.post('/api/bookings', dto),
   update: (id, dto) => api.put(`/api/bookings/${id}`, dto),
   cancel: (id) => api.put(`/api/bookings/${id}/cancel`),
+};
+
+/** Image src for ticket attachments: uses Cloudinary HTTPS from API when present, else local download URL. */
+export function resolveAttachmentImageSrc(attachment, ticketId) {
+  const u = attachment?.downloadUrl?.trim?.() ?? attachment?.downloadUrl;
+  if (u && (u.startsWith('http://') || u.startsWith('https://') || u.startsWith('//'))) {
+    return u.startsWith('//') ? `https:${u}` : u;
+  }
+  const path =
+    u && u.startsWith('/')
+      ? u
+      : `/api/tickets/${ticketId}/attachments/${attachment?.id}/download`;
+  return `${API_BASE_URL}${path}`;
+}
+// ── Auth API helpers ─────────────────────────────────────────────────────────
+export const authApi = {
+  register: (name, email, password) =>
+    api.post('/api/auth/register', { name, email, password }),
+  login: (email, password) =>
+    api.post('/api/auth/login', { email, password }),
+};
+
+// ── Notification API helpers ─────────────────────────────────────────────────
+export const notificationApi = {
+  /** Get all notifications (max 50, newest first) */
+  fetchAll: () => api.get('/api/notifications'),
+  /** Get unread count for badge */
+  unreadCount: () => api.get('/api/notifications/unread-count'),
+  /** Mark one notification as read */
+  markRead: (id) => api.put(`/api/notifications/${id}/read`),
+  /** Mark all notifications as read */
+  markAllRead: () => api.put('/api/notifications/read-all'),
 };
 
 export default api;

@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { authApi } from "../services/api";
 
 // ─── Theme Definitions ────────────────────────────────────────────────────────
 // All color/token values live here. No hardcoded colors elsewhere in components.
@@ -815,7 +816,225 @@ const styles = `
     .roles-tabs { flex-wrap: wrap; }
     .workflow-steps { grid-template-columns: 1fr 1fr; }
     .footer { flex-direction: column; gap: 16px; text-align: center; }
+    .auth-modal { max-width: 100%; }
+    .auth-modal-header { padding: 24px 20px 0; }
+    .auth-modal-body { padding: 0 20px 24px; }
+    .auth-tabs { margin: 0 20px 20px; }
   }
+
+   /* ── AUTH MODAL ── */
+   .auth-overlay {
+     position: fixed; inset: 0; z-index: 1000;
+     background: rgba(0,0,0,0.55);
+     backdrop-filter: blur(8px);
+     -webkit-backdrop-filter: blur(8px);
+     display: flex; align-items: center; justify-content: center;
+     animation: authOverlayIn 0.25s ease both;
+     padding: 20px;
+   }
+   @keyframes authOverlayIn {
+     from { opacity: 0; }
+     to   { opacity: 1; }
+   }
+   .auth-modal {
+     width: 100%; max-width: 440px;
+     background: var(--bg-surface);
+     border: 1px solid var(--border);
+     border-radius: var(--radius-xl);
+     box-shadow: 0 40px 100px -20px rgba(0,0,0,0.5);
+     overflow: hidden;
+     animation: authModalIn 0.35s ease both;
+     position: relative;
+   }
+   @keyframes authModalIn {
+     from { opacity: 0; transform: translateY(24px) scale(0.97); }
+     to   { opacity: 1; transform: translateY(0) scale(1); }
+   }
+   .auth-modal-glow {
+     position: absolute; top: -80px; left: 50%; transform: translateX(-50%);
+     width: 300px; height: 200px;
+     background: radial-gradient(ellipse, var(--accent-glow) 0%, transparent 70%);
+     pointer-events: none; z-index: 0;
+     filter: blur(40px);
+   }
+   .auth-modal-header {
+     padding: 32px 32px 0;
+     text-align: center;
+     position: relative; z-index: 1;
+   }
+   .auth-modal-logo {
+     width: 48px; height: 48px;
+     background: var(--accent);
+     border-radius: var(--radius-md);
+     display: inline-flex; align-items: center; justify-content: center;
+     font-size: 22px;
+     margin-bottom: 20px;
+   }
+   .auth-modal-title {
+     font-family: var(--font-display);
+     font-size: 26px; font-weight: 800;
+     color: var(--text-primary);
+     letter-spacing: -0.025em;
+     margin-bottom: 6px;
+   }
+   .auth-modal-subtitle {
+     font-size: 14px; color: var(--text-muted);
+     margin-bottom: 24px;
+   }
+   .auth-tabs {
+     display: flex; gap: 4px;
+     background: var(--bg-elevated);
+     border: 1px solid var(--border);
+     border-radius: var(--radius-md); padding: 4px;
+     margin: 0 32px 24px;
+     position: relative; z-index: 1;
+   }
+   .auth-tab {
+     flex: 1; padding: 10px 16px;
+     border-radius: 9px;
+     border: 1px solid transparent;
+     background: transparent;
+     font-family: var(--font-body);
+     font-size: 14px; font-weight: 500;
+     color: var(--text-muted);
+     cursor: pointer;
+     transition: all 0.2s;
+     text-align: center;
+   }
+   .auth-tab.active {
+     background: var(--bg-base);
+     color: var(--text-primary);
+     border-color: var(--border);
+     box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+   }
+   .auth-tab:hover:not(.active) { color: var(--text-secondary); }
+   .auth-modal-body {
+     padding: 0 32px 32px;
+     position: relative; z-index: 1;
+   }
+   .auth-divider {
+     display: flex; align-items: center; gap: 16px;
+     margin: 20px 0;
+     color: var(--text-muted);
+     font-size: 12px;
+     font-family: var(--font-mono);
+     text-transform: uppercase;
+     letter-spacing: 0.08em;
+   }
+   .auth-divider::before, .auth-divider::after {
+     content: ''; flex: 1; height: 1px;
+     background: var(--border);
+   }
+   .auth-input-group {
+     margin-bottom: 16px;
+   }
+   .auth-input-label {
+     display: block;
+     font-size: 13px; font-weight: 500;
+     color: var(--text-secondary);
+     margin-bottom: 6px;
+     font-family: var(--font-body);
+   }
+   .auth-input {
+     width: 100%; padding: 12px 14px;
+     background: var(--bg-elevated);
+     border: 1px solid var(--border);
+     border-radius: var(--radius-sm);
+     font-family: var(--font-body);
+     font-size: 14px;
+     color: var(--text-primary);
+     outline: none;
+     transition: border-color 0.2s, box-shadow 0.2s;
+   }
+   .auth-input::placeholder { color: var(--text-muted); }
+   .auth-input:focus {
+     border-color: var(--accent);
+     box-shadow: 0 0 0 3px var(--accent-glow);
+   }
+   .auth-submit {
+     width: 100%; padding: 13px 20px;
+     border: none; border-radius: var(--radius-sm);
+     background: var(--accent);
+     color: var(--accent-fg);
+     font-family: var(--font-body);
+     font-size: 15px; font-weight: 600;
+     cursor: pointer;
+     transition: all 0.2s;
+     margin-top: 4px;
+     display: flex; align-items: center; justify-content: center; gap: 8px;
+   }
+   .auth-submit:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 6px 20px var(--accent-glow); }
+   .auth-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
+   .auth-google-btn {
+     width: 100%; padding: 12px 20px;
+     border: 1px solid var(--border);
+     border-radius: var(--radius-sm);
+     background: var(--bg-elevated);
+     color: var(--text-primary);
+     font-family: var(--font-body);
+     font-size: 14px; font-weight: 500;
+     cursor: pointer;
+     transition: all 0.2s;
+     display: flex; align-items: center; justify-content: center; gap: 10px;
+   }
+   .auth-google-btn:hover {
+     border-color: var(--accent-border);
+     background: var(--accent-glow);
+     transform: translateY(-1px);
+   }
+   .auth-google-btn svg { flex-shrink: 0; }
+   .auth-error {
+     background: var(--status-red-bg);
+     color: var(--status-red);
+     font-size: 13px;
+     padding: 10px 14px;
+     border-radius: var(--radius-sm);
+     margin-bottom: 16px;
+     display: flex; align-items: center; gap: 8px;
+     animation: authShake 0.4s ease;
+   }
+   @keyframes authShake {
+     0%, 100% { transform: translateX(0); }
+     20%  { transform: translateX(-6px); }
+     40%  { transform: translateX(6px); }
+     60%  { transform: translateX(-4px); }
+     80%  { transform: translateX(4px); }
+   }
+   .auth-close {
+     position: absolute; top: 16px; right: 16px;
+     width: 32px; height: 32px;
+     border-radius: 50%; border: 1px solid var(--border);
+     background: var(--bg-elevated);
+     color: var(--text-muted);
+     font-size: 16px;
+     cursor: pointer;
+     display: flex; align-items: center; justify-content: center;
+     transition: all 0.2s;
+     z-index: 2;
+   }
+   .auth-close:hover { border-color: var(--accent-border); color: var(--text-primary); transform: rotate(90deg); }
+   .auth-spinner {
+     width: 18px; height: 18px;
+     border: 2px solid var(--accent-fg);
+     border-top-color: transparent;
+     border-radius: 50%;
+     animation: authSpin 0.6s linear infinite;
+   }
+   @keyframes authSpin {
+     to { transform: rotate(360deg); }
+   }
+   .auth-password-wrapper {
+     position: relative;
+   }
+   .auth-password-toggle {
+     position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+     background: none; border: none;
+     color: var(--text-muted);
+     cursor: pointer; font-size: 14px;
+     transition: color 0.2s;
+     padding: 4px;
+   }
+   .auth-password-toggle:hover { color: var(--text-primary); }
 `;
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
@@ -889,14 +1108,93 @@ function useTheme() {
   return { theme };
 }
 
+// ─── Google SVG Icon ──────────────────────────────────────────────────────────
+const GoogleIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+    <path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+    <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
+    <path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.997 8.997 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+    <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 6.29C4.672 4.163 6.656 2.58 9 3.58z" fill="#EA4335"/>
+  </svg>
+);
+
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function HomePage() {
   const { theme } = useTheme();
-  const { user, isAuthenticated, logout, hasRole } = useAuth();
+  const { user, isAuthenticated, logout, hasRole, login: authLogin } = useAuth();
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [activeRole, setActiveRole] = useState("admin");
   const [counter, setCounter] = useState({ bookings: 0, assets: 0, incidents: 0, uptime: 0 });
+
+  // ── Auth modal state ──
+  const [authModal, setAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState('login');
+  const [authForm, setAuthForm] = useState({ name: '', email: '', password: '' });
+  const [authError, setAuthError] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const modalRef = useRef(null);
+
+  const openAuthModal = (mode = 'login') => {
+    setAuthMode(mode);
+    setAuthForm({ name: '', email: '', password: '' });
+    setAuthError('');
+    setAuthLoading(false);
+    setShowPassword(false);
+    setAuthModal(true);
+  };
+
+  const closeAuthModal = () => setAuthModal(false);
+
+  const handleOverlayClick = (e) => {
+    if (modalRef.current && !modalRef.current.contains(e.target)) {
+      closeAuthModal();
+    }
+  };
+
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') closeAuthModal(); };
+    if (authModal) window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [authModal]);
+
+  const handleAuthSubmit = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    
+    // Form Validation logic
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(authForm.email)) {
+      return setAuthError('Invalid email address.');
+    }
+    if (!/^(?=.*[0-9])(?=.*[^a-zA-Z0-9\\s]).{8,}$/.test(authForm.password)) {
+      return setAuthError('Password must be at least 8 characters long, and include at least one number and one special character.');
+    }
+    if (authMode === 'register' && (!authForm.name || !authForm.name.trim())) {
+      return setAuthError('Name is required.');
+    }
+    
+    setAuthLoading(true);
+    try {
+      let res;
+      if (authMode === 'register') {
+        res = await authApi.register(authForm.name, authForm.email, authForm.password);
+      } else {
+        res = await authApi.login(authForm.email, authForm.password);
+      }
+      authLogin(res.data.token);
+      closeAuthModal();
+      const roles = res.data.roles || [];
+      if (roles.includes('ROLE_ADMIN')) navigate('/admin');
+      else if (roles.includes('ROLE_TECHNICIAN')) navigate('/technician');
+      else navigate('/dashboard');
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Something went wrong. Please try again.';
+      setAuthError(msg);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
 
   // Navigate to the appropriate dashboard based on user role
   const goToDashboard = () => {
@@ -906,7 +1204,7 @@ export default function HomePage() {
   };
 
   // Initiate Google OAuth sign-in (redirect to backend)
-  const handleSignIn = () => {
+  const handleGoogleSignIn = () => {
     window.location.href = 'http://localhost:8081/oauth2/authorization/google';
   };
 
@@ -980,10 +1278,8 @@ export default function HomePage() {
             </>
           ) : (
             <>
-              <button className="btn-ghost" onClick={handleSignIn}>
-                <span style={{ marginRight: '6px' }}>🔑</span> Sign In with Google
-              </button>
-              <button className="btn-primary" onClick={handleSignIn}>Get Started</button>
+              <button className="btn-ghost" onClick={() => openAuthModal('login')}>Sign In</button>
+              <button className="btn-primary" onClick={() => openAuthModal('register')}>Get Started</button>
             </>
           )}
         </div>
@@ -1015,10 +1311,10 @@ export default function HomePage() {
             <button className="btn-primary btn-lg" onClick={goToDashboard}>Go to Dashboard →</button>
           ) : (
             <>
-              <button className="btn-primary btn-lg" onClick={handleSignIn}>
-                <span style={{ marginRight: '8px' }}>🔑</span> Sign In with Google
+              <button className="btn-primary btn-lg" onClick={() => openAuthModal('register')}>
+                Get Started Free →
               </button>
-              <button className="btn-ghost btn-lg" onClick={handleSignIn}>Request Access</button>
+              <button className="btn-ghost btn-lg" onClick={() => openAuthModal('login')}>Sign In</button>
             </>
           )}
         </div>
@@ -1238,9 +1534,12 @@ export default function HomePage() {
             {isAuthenticated ? (
               <button className="btn-primary btn-lg" onClick={goToDashboard}>Open Dashboard</button>
             ) : (
-              <button className="btn-primary btn-lg" onClick={handleSignIn}>
-                <span style={{ marginRight: '8px' }}>🔑</span> Sign In with Google
-              </button>
+              <>
+                <button className="btn-primary btn-lg" onClick={() => openAuthModal('register')}>
+                  Create Free Account
+                </button>
+                <button className="btn-ghost btn-lg" onClick={() => openAuthModal('login')}>Sign In</button>
+              </>
             )}
             <button className="btn-ghost btn-lg">View Documentation</button>
           </div>
@@ -1257,6 +1556,119 @@ export default function HomePage() {
           <a href="#">Support</a>
         </div>
       </footer>
+
+      {/* ── AUTH MODAL ── */}
+      {authModal && (
+        <div className="auth-overlay" onClick={handleOverlayClick}>
+          <div className="auth-modal" ref={modalRef}>
+            <div className="auth-modal-glow" />
+            <button className="auth-close" onClick={closeAuthModal} aria-label="Close">✕</button>
+
+            <div className="auth-modal-header">
+              <div className="auth-modal-logo">🏛</div>
+              <div className="auth-modal-title">
+                {authMode === 'login' ? 'Welcome back' : 'Create your account'}
+              </div>
+              <div className="auth-modal-subtitle">
+                {authMode === 'login'
+                  ? 'Sign in to access your SmartCampus dashboard'
+                  : 'Get started with SmartCampus in seconds'}
+              </div>
+            </div>
+
+            <div className="auth-tabs">
+              <button
+                className={`auth-tab ${authMode === 'login' ? 'active' : ''}`}
+                onClick={() => { setAuthMode('login'); setAuthError(''); }}
+              >Sign In</button>
+              <button
+                className={`auth-tab ${authMode === 'register' ? 'active' : ''}`}
+                onClick={() => { setAuthMode('register'); setAuthError(''); }}
+              >Sign Up</button>
+            </div>
+
+            <div className="auth-modal-body">
+              {/* Google button */}
+              <button className="auth-google-btn" onClick={handleGoogleSignIn} type="button">
+                <GoogleIcon />
+                {authMode === 'login' ? 'Continue with Google' : 'Sign up with Google'}
+              </button>
+
+              <div className="auth-divider">or</div>
+
+              {authError && (
+                <div className="auth-error">⚠ {authError}</div>
+              )}
+
+              <form onSubmit={handleAuthSubmit}>
+                {authMode === 'register' && (
+                  <div className="auth-input-group">
+                    <label className="auth-input-label" htmlFor="auth-name">Full Name</label>
+                    <input
+                      id="auth-name"
+                      className="auth-input"
+                      type="text"
+                      placeholder="John Doe"
+                      value={authForm.name}
+                      onChange={(e) => setAuthForm(f => ({ ...f, name: e.target.value }))}
+                      required
+                      autoComplete="name"
+                    />
+                  </div>
+                )}
+
+                <div className="auth-input-group">
+                  <label className="auth-input-label" htmlFor="auth-email">Email Address</label>
+                  <input
+                    id="auth-email"
+                    className="auth-input"
+                    type="email"
+                    placeholder="you@university.edu"
+                    value={authForm.email}
+                    onChange={(e) => setAuthForm(f => ({ ...f, email: e.target.value }))}
+                    required
+                    autoComplete="email"
+                  />
+                </div>
+
+                <div className="auth-input-group">
+                  <label className="auth-input-label" htmlFor="auth-password">Password</label>
+                  <div className="auth-password-wrapper">
+                    <input
+                      id="auth-password"
+                      className="auth-input"
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder={authMode === 'register' ? 'Min 6 characters' : '••••••••'}
+                      value={authForm.password}
+                      onChange={(e) => setAuthForm(f => ({ ...f, password: e.target.value }))}
+                      required
+                      minLength={authMode === 'register' ? 6 : undefined}
+                      autoComplete={authMode === 'register' ? 'new-password' : 'current-password'}
+                      style={{ paddingRight: '44px' }}
+                    />
+                    <button
+                      type="button"
+                      className="auth-password-toggle"
+                      onClick={() => setShowPassword(v => !v)}
+                      tabIndex={-1}
+                    >
+                      {showPassword ? '🙈' : '👁'}
+                    </button>
+                  </div>
+                </div>
+
+                <button className="auth-submit" type="submit" disabled={authLoading}>
+                  {authLoading ? (
+                    <><div className="auth-spinner" /> Processing…</>
+                  ) : (
+                    authMode === 'login' ? 'Sign In' : 'Create Account'
+                  )}
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

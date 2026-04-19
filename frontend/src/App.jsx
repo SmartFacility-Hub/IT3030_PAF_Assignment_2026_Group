@@ -4,11 +4,13 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import AdminLayout from "./components/AdminLayout";
 import HomePage from "./pages/HomePage";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminIncidentsPage from "./pages/AdminIncidentsPage";
 import UserDashboard from "./pages/UserDashboard";
 import TechnicianDashboard from "./pages/TechnicianDashboard";
 import OAuthCallback from "./pages/OAuthCallback";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
 import FacilitiesPage from "./pages/FacilitiesPage";
+import AdminUsersPage from "./pages/AdminUsersPage";
 
 import BookingsShell from './pages/BookingsShell';
 import BookingFormPage from './pages/BookingFormPage';
@@ -31,7 +33,7 @@ function App() {
 
           {/* Technician */}
           <Route path="/technician" element={
-            <ProtectedRoute requiredRoles={["ROLE_TECHNICIAN", "ROLE_ADMIN"]}>
+            <ProtectedRoute requiredRole="ROLE_TECHNICIAN">
               <TechnicianDashboard />
             </ProtectedRoute>
           } />
@@ -40,10 +42,12 @@ function App() {
             <ProtectedRoute requiredRole="ROLE_ADMIN">
               <AdminLayout />
             </ProtectedRoute>
-            }>
+          }>
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/analytics" element={<AdminDashboard />} />
             <Route path="/admin/facilities" element={<FacilitiesPage />} />
+            <Route path="/admin/incidents" element={<AdminIncidentsPage />} />
+            <Route path="/admin/users" element={<AdminUsersPage />} />
           </Route>
 
           {/* Bookings*/}

@@ -5,12 +5,14 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.smartfacility.app.incidentservice.config.CurrentUserUtil;
 import com.smartfacility.app.incidentservice.dto.request.AssignTechnicianDTO;
 import com.smartfacility.app.incidentservice.dto.request.StatusUpdateDTO;
 import com.smartfacility.app.incidentservice.dto.request.TicketRequestDTO;
 import com.smartfacility.app.incidentservice.dto.response.AttachmentResponseDTO;
+import com.smartfacility.app.incidentservice.util.AttachmentDownloadUrls;
 import com.smartfacility.app.incidentservice.dto.response.CommentResponseDTO;
 import com.smartfacility.app.incidentservice.dto.response.TicketResponseDTO;
 import com.smartfacility.app.incidentservice.enums.TicketStatus;
@@ -19,6 +21,9 @@ import com.smartfacility.app.incidentservice.exception.ResourceNotFoundException
 import com.smartfacility.app.incidentservice.exception.UnauthorizedException;
 import com.smartfacility.app.incidentservice.model.Ticket;
 import com.smartfacility.app.incidentservice.repository.TicketRepository;
+import com.smartfacility.app.notification.NotificationService;
+import com.smartfacility.app.notification.NotificationType;
+import com.smartfacility.app.notification.ReferenceType;
 
 import lombok.RequiredArgsConstructor;
 
@@ -29,6 +34,7 @@ public class TicketService {
 
     private final TicketRepository ticketRepository;
     private final CurrentUserUtil currentUserUtil;
+    private final NotificationService notificationService;
 
     //create
     public TicketResponseDTO createTicket(TicketRequestDTO dto){
@@ -42,7 +48,6 @@ public class TicketService {
             .category(dto.getCategory())
             .description(dto.getDescription())
             .priority(dto.getPriority())
-            .contactDetails(dto.getContactDetails())
             .status(TicketStatus.OPEN)  // always starts as OPEN
             .createdBy(userId)
             .build();
@@ -118,6 +123,19 @@ public class TicketService {
                 "Only admins or the assigned technician can update the ticket status");
         }
 
+        // Technicians may mark in-progress work as resolved only — rejection and other transitions are admin-only
+        if (isAssignedTechnician && !currentUserUtil.isAdmin()) {
+            if (dto.getStatus() == TicketStatus.REJECTED) {
+                throw new UnauthorizedException("Only administrators can reject tickets");
+            }
+            boolean techAllowed = ticket.getStatus() == TicketStatus.IN_PROGRESS
+                    && dto.getStatus() == TicketStatus.RESOLVED;
+            if (!techAllowed) {
+                throw new UnauthorizedException(
+                    "Technicians may only mark in-progress tickets as resolved");
+            }
+        }
+
         // Validate the status transition is allowed
         validateStatusTransition(ticket.getStatus(), dto.getStatus());
 
@@ -138,7 +156,22 @@ public class TicketService {
         }
 
         ticket.setStatus(dto.getStatus());
-        return mapToResponse(ticketRepository.save(ticket));
+        Ticket saved = ticketRepository.save(ticket);
+
+        // ── Notify ticket creator about the status change ──
+        try {
+            String statusLabel = dto.getStatus().name().replace("_", " ").toLowerCase();
+            notificationService.create(
+                    ticket.getCreatedBy(),
+                    NotificationType.TICKET_STATUS_CHANGED,
+                    "Ticket #" + ticket.getId() + " — Status Updated",
+                    "Your ticket has been moved to " + statusLabel + ".",
+                    ReferenceType.TICKET,
+                    ticket.getId()
+            );
+        } catch (Exception ignored) { /* don't let notification failure break the flow */ }
+
+        return mapToResponse(saved);
     }
 
     // ─── ASSIGN TECHNICIAN ────────────────────────────────────
@@ -155,7 +188,34 @@ public class TicketService {
             ticket.setStatus(TicketStatus.IN_PROGRESS);
         }
 
-        return mapToResponse(ticketRepository.save(ticket));
+        Ticket saved = ticketRepository.save(ticket);
+
+        // ── Notify the assigned technician ──
+        try {
+            notificationService.create(
+                    dto.getTechnicianId(),
+                    NotificationType.TICKET_ASSIGNED,
+                    "Ticket #" + ticket.getId() + " Assigned to You",
+                    "You have been assigned to ticket at " + ticket.getResourceLocation() + ".",
+                    ReferenceType.TICKET,
+                    ticket.getId()
+            );
+        } catch (Exception ignored) { /* don't let notification failure break the flow */ }
+
+        return mapToResponse(saved);
+    }
+
+    /** Permanently removes a ticket. Only admins; only terminal CLOSED or REJECTED tickets. */
+    @Transactional
+    public void deleteTicketAsAdmin(Long id) {
+        if (!currentUserUtil.isAdmin()) {
+            throw new UnauthorizedException("Only administrators can delete tickets");
+        }
+        Ticket ticket = findTicketOrThrow(id);
+        if (ticket.getStatus() != TicketStatus.CLOSED && ticket.getStatus() != TicketStatus.REJECTED) {
+            throw new BadRequestException("Only closed or rejected tickets can be deleted");
+        }
+        ticketRepository.delete(ticket);
     }
 
     // ─── STATE MACHINE ────────────────────────────────────────
@@ -184,7 +244,7 @@ public class TicketService {
                         .originalFileName(a.getOriginalFileName())
                         .fileType(a.getFileType())
                         .uploadedAt(a.getUploadedAt())
-                        .downloadUrl("/api/tickets/" + ticket.getId() + "/attachments/" + a.getId())
+                        .downloadUrl(AttachmentDownloadUrls.build(a, ticket.getId()))
                         .build())
                 .collect(Collectors.toList());
 
@@ -206,7 +266,6 @@ public class TicketService {
                 .description(ticket.getDescription())
                 .priority(ticket.getPriority())
                 .status(ticket.getStatus())
-                .contactDetails(ticket.getContactDetails())
                 .createdBy(ticket.getCreatedBy())
                 .assignedTo(ticket.getAssignTo())
                 .resolutionNotes(ticket.getResolutionNotes())
