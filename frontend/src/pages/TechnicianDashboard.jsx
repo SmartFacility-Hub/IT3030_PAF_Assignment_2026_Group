@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { ticketApi, API_BASE_URL } from "../services/api";
 import NotificationBell from "../components/NotificationBell";
 import { ticketApi, resolveAttachmentImageSrc } from "../services/api";
 
@@ -280,7 +279,7 @@ const STATUS_DOT = {
   OPEN: "var(--status-red)", IN_PROGRESS: "var(--status-amber)",
   RESOLVED: "var(--status-green)", CLOSED: "var(--text-muted)", REJECTED: "var(--status-red)",
 };
-const STATUS_BG  = {
+const STATUS_BG = {
   OPEN: "var(--status-red-bg)", IN_PROGRESS: "var(--status-amber-bg)",
   RESOLVED: "var(--status-green-bg)", CLOSED: "var(--bg-elevated)", REJECTED: "var(--status-red-bg)",
 };
@@ -288,19 +287,19 @@ const STATUS_CLR = {
   OPEN: "var(--status-red)", IN_PROGRESS: "var(--status-amber)",
   RESOLVED: "var(--status-green)", CLOSED: "var(--text-muted)", REJECTED: "var(--status-red)",
 };
-const STATUS_LABEL = { OPEN:"Open", IN_PROGRESS:"In Progress", RESOLVED:"Resolved", CLOSED:"Closed", REJECTED:"Rejected" };
-const PRIO_BG  = { HIGH:"var(--status-red-bg)", CRITICAL:"var(--status-red-bg)", MEDIUM:"var(--status-amber-bg)", LOW:"var(--bg-elevated)" };
-const PRIO_CLR = { HIGH:"var(--status-red)",    CRITICAL:"var(--status-red)",    MEDIUM:"var(--status-amber)",    LOW:"var(--text-muted)" };
+const STATUS_LABEL = { OPEN: "Open", IN_PROGRESS: "In Progress", RESOLVED: "Resolved", CLOSED: "Closed", REJECTED: "Rejected" };
+const PRIO_BG = { HIGH: "var(--status-red-bg)", CRITICAL: "var(--status-red-bg)", MEDIUM: "var(--status-amber-bg)", LOW: "var(--bg-elevated)" };
+const PRIO_CLR = { HIGH: "var(--status-red)", CRITICAL: "var(--status-red)", MEDIUM: "var(--status-amber)", LOW: "var(--text-muted)" };
 
 function fmt(iso) {
   if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-US", { day:"2-digit", month:"short" });
+  return new Date(iso).toLocaleDateString("en-US", { day: "2-digit", month: "short" });
 }
 function fmtFull(iso) {
   if (!iso) return "";
   const d = new Date(iso);
-  return d.toLocaleDateString("en-US", { day:"2-digit", month:"short" }) + " " +
-         d.toLocaleTimeString("en-US", { hour:"2-digit", minute:"2-digit" });
+  return d.toLocaleDateString("en-US", { day: "2-digit", month: "short" }) + " " +
+    d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 }
 
 // ─── Update Status Modal ──────────────────────────────────────────────────────
@@ -348,8 +347,8 @@ function UpdateStatusModal({ ticket, onClose, onUpdated }) {
             {ticket.status === "OPEN"
               ? "This ticket is still open. After an administrator assigns you and the ticket is in progress, you can mark it resolved here."
               : ticket.status === "RESOLVED"
-              ? "This ticket is resolved. Further status changes (for example closing) are done by an administrator."
-              : `This ticket is in a terminal state (${ticket.status}) and cannot be updated further.`}
+                ? "This ticket is resolved. Further status changes (for example closing) are done by an administrator."
+                : `This ticket is in a terminal state (${ticket.status}) and cannot be updated further.`}
           </p>
         ) : (
           <form onSubmit={handleSubmit}>
@@ -410,7 +409,7 @@ function TicketDetailPanel({ ticket, onClose }) {
       const res = await ticketApi.addComment(ticket.id, newComment.trim());
       setComments(c => [...c, res.data]);
       setNewComment("");
-    } catch (_) {} finally { setSubmitting(false); }
+    } catch (_) { } finally { setSubmitting(false); }
   };
 
   const handleEditSave = async id => {
@@ -418,7 +417,7 @@ function TicketDetailPanel({ ticket, onClose }) {
       const res = await ticketApi.editComment(ticket.id, id, editingText);
       setComments(c => c.map(x => x.id === id ? res.data : x));
       setEditingId(null);
-    } catch (_) {}
+    } catch (_) { }
   };
 
   const handleDelete = async id => {
@@ -426,7 +425,7 @@ function TicketDetailPanel({ ticket, onClose }) {
     try {
       await ticketApi.deleteComment(ticket.id, id);
       setComments(c => c.filter(x => x.id !== id));
-    } catch (_) {}
+    } catch (_) { }
   };
 
   return (
@@ -438,7 +437,7 @@ function TicketDetailPanel({ ticket, onClose }) {
           <button className="td-panel-close" onClick={onClose}>✕</button>
         </div>
         <div className="td-panel-body">
-          <div style={{ display:"flex", gap:8, marginBottom:16 }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
             <span className="td-badge" style={{ background: STATUS_BG[ticket.status], color: STATUS_CLR[ticket.status] }}>
               <span className="td-badge-dot" style={{ background: STATUS_DOT[ticket.status] }} />
               {STATUS_LABEL[ticket.status]}
@@ -453,7 +452,7 @@ function TicketDetailPanel({ ticket, onClose }) {
           </div>
           <div className="td-detail-field">
             <div className="td-detail-label">Category</div>
-            <div className="td-detail-value">{ticket.category?.replace("_"," ")}</div>
+            <div className="td-detail-value">{ticket.category?.replace("_", " ")}</div>
           </div>
           <div className="td-detail-field">
             <div className="td-detail-label">Created By</div>
@@ -462,17 +461,17 @@ function TicketDetailPanel({ ticket, onClose }) {
           {ticket.resolutionNotes && (
             <div className="td-detail-field">
               <div className="td-detail-label">Resolution Notes</div>
-              <div className="td-detail-value" style={{ color:"var(--status-green)" }}>
+              <div className="td-detail-value" style={{ color: "var(--status-green)" }}>
                 {ticket.resolutionNotes}
               </div>
             </div>
           )}
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:16 }}>
-            <div className="td-detail-field" style={{ margin:0 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+            <div className="td-detail-field" style={{ margin: 0 }}>
               <div className="td-detail-label">Created</div>
               <div className="td-detail-value">{fmt(ticket.createdAt)}</div>
             </div>
-            <div className="td-detail-field" style={{ margin:0 }}>
+            <div className="td-detail-field" style={{ margin: 0 }}>
               <div className="td-detail-label">Updated</div>
               <div className="td-detail-value">{fmt(ticket.updatedAt)}</div>
             </div>
@@ -481,7 +480,7 @@ function TicketDetailPanel({ ticket, onClose }) {
           {ticket.attachments?.length > 0 && (
             <>
               <hr className="td-divider" />
-              <div className="td-detail-label" style={{ marginBottom:10 }}>Attachments</div>
+              <div className="td-detail-label" style={{ marginBottom: 10 }}>Attachments</div>
               <div className="td-attachments">
                 {ticket.attachments.map(a => (
                   <img key={a.id} className="td-attach-img"
@@ -495,7 +494,7 @@ function TicketDetailPanel({ ticket, onClose }) {
           )}
 
           <hr className="td-divider" />
-          <div className="td-detail-label" style={{ marginBottom:12 }}>Comments ({comments.length})</div>
+          <div className="td-detail-label" style={{ marginBottom: 12 }}>Comments ({comments.length})</div>
           <div className="td-comment-list">
             {comments.length === 0 && <div className="td-empty">No comments yet.</div>}
             {comments.map(c => (
@@ -506,7 +505,7 @@ function TicketDetailPanel({ ticket, onClose }) {
                 </div>
                 {editingId === c.id ? (
                   <>
-                    <textarea className="td-textarea" style={{ minHeight:48 }}
+                    <textarea className="td-textarea" style={{ minHeight: 48 }}
                       value={editingText} onChange={e => setEditingText(e.target.value)} />
                     <div className="td-comment-actions">
                       <button className="td-comment-btn" onClick={() => handleEditSave(c.id)}>Save</button>
@@ -534,7 +533,7 @@ function TicketDetailPanel({ ticket, onClose }) {
               value={newComment}
               onChange={e => setNewComment(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter" && e.ctrlKey) handleAdd(); }} />
-            <button className="td-btn-primary" style={{ flexShrink:0 }}
+            <button className="td-btn-primary" style={{ flexShrink: 0 }}
               onClick={handleAdd} disabled={submitting || !newComment.trim()}>
               {submitting ? "…" : "Send"}
             </button>
@@ -561,7 +560,7 @@ export default function TechnicianDashboard() {
     try {
       const res = await ticketApi.fetchAll();
       setTickets(res.data);
-    } catch (_) {} finally { setLoading(false); }
+    } catch (_) { } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { fetchTickets(); }, [fetchTickets]);
@@ -572,9 +571,9 @@ export default function TechnicianDashboard() {
   };
 
   const kpi = {
-    open:       tickets.filter(t => t.status === "OPEN").length,
+    open: tickets.filter(t => t.status === "OPEN").length,
     inProgress: tickets.filter(t => t.status === "IN_PROGRESS").length,
-    resolved:   tickets.filter(t => t.status === "RESOLVED").length,
+    resolved: tickets.filter(t => t.status === "RESOLVED").length,
   };
 
   return (
@@ -613,15 +612,15 @@ export default function TechnicianDashboard() {
         {/* KPI mini row */}
         <div className="td-kpi-row fade-in">
           <div className="td-kpi">
-            <div className="td-kpi-val" style={{ color:"var(--status-red)" }}>{kpi.open}</div>
+            <div className="td-kpi-val" style={{ color: "var(--status-red)" }}>{kpi.open}</div>
             <div className="td-kpi-lbl">Open</div>
           </div>
           <div className="td-kpi">
-            <div className="td-kpi-val" style={{ color:"var(--status-amber)" }}>{kpi.inProgress}</div>
+            <div className="td-kpi-val" style={{ color: "var(--status-amber)" }}>{kpi.inProgress}</div>
             <div className="td-kpi-lbl">In Progress</div>
           </div>
           <div className="td-kpi">
-            <div className="td-kpi-val" style={{ color:"var(--status-green)" }}>{kpi.resolved}</div>
+            <div className="td-kpi-val" style={{ color: "var(--status-green)" }}>{kpi.resolved}</div>
             <div className="td-kpi-lbl">Resolved</div>
           </div>
         </div>
@@ -630,14 +629,14 @@ export default function TechnicianDashboard() {
         <div className="td-table-card fade-in-1">
           <div className="td-table-header">
             <div className="td-table-title"><span>🔧</span> Assigned Incidents</div>
-            <button className="td-btn-ghost" style={{ fontSize:12 }} onClick={fetchTickets}>↺ Refresh</button>
+            <button className="td-btn-ghost" style={{ fontSize: 12 }} onClick={fetchTickets}>↺ Refresh</button>
           </div>
           {loading ? (
-            <div style={{ padding:"32px", textAlign:"center", color:"var(--text-muted)", fontFamily:"var(--font-mono)", fontSize:12 }}>
+            <div style={{ padding: "32px", textAlign: "center", color: "var(--text-muted)", fontFamily: "var(--font-mono)", fontSize: 12 }}>
               Loading…
             </div>
           ) : tickets.length === 0 ? (
-            <div style={{ padding:"32px", textAlign:"center", color:"var(--text-muted)", fontFamily:"var(--font-mono)", fontSize:12 }}>
+            <div style={{ padding: "32px", textAlign: "center", color: "var(--text-muted)", fontFamily: "var(--font-mono)", fontSize: 12 }}>
               No tickets assigned to you yet.
             </div>
           ) : (
@@ -656,9 +655,9 @@ export default function TechnicianDashboard() {
               <tbody>
                 {tickets.map(t => (
                   <tr key={t.id} onClick={() => setSelected(t)}>
-                    <td style={{ fontFamily:"var(--font-mono)", fontSize:12 }}>#{t.id}</td>
+                    <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>#{t.id}</td>
                     <td>{t.resourceLocation}</td>
-                    <td style={{ fontSize:12, color:"var(--text-muted)" }}>{t.category?.replace("_"," ")}</td>
+                    <td style={{ fontSize: 12, color: "var(--text-muted)" }}>{t.category?.replace("_", " ")}</td>
                     <td>
                       <span className="td-badge" style={{ background: PRIO_BG[t.priority], color: PRIO_CLR[t.priority] }}>
                         {t.priority}
@@ -670,11 +669,11 @@ export default function TechnicianDashboard() {
                         {STATUS_LABEL[t.status]}
                       </span>
                     </td>
-                    <td style={{ fontFamily:"var(--font-mono)", fontSize:11, color:"var(--text-muted)" }}>
+                    <td style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>
                       {fmt(t.createdAt)}
                     </td>
                     <td onClick={e => e.stopPropagation()}>
-                      <button className="td-btn-primary" style={{ fontSize:12, padding:"5px 12px" }}
+                      <button className="td-btn-primary" style={{ fontSize: 12, padding: "5px 12px" }}
                         onClick={() => setUpdating(t)}
                         disabled={!technicianCanUpdateStatus(t.status)}>
                         Update
