@@ -224,15 +224,15 @@ const navSections = [
     label: "Bookings",
     items: [
       { icon: "📅", label: "My Bookings",   id: "bookings",   route: "/dashboard/bookings" },
-      { icon: "🔍", label: "Browse Rooms",  id: "browse",     route: "/dashboard/browse" },
-      { icon: "➕", label: "New Booking",   id: "new",        route: "/dashboard/new-booking" },
+    //   { icon: "🔍", label: "Browse Rooms",  id: "browse",     route: "/dashboard/browse" },
+    //   { icon: "➕", label: "New Booking",   id: "new",        route: "/dashboard/new-booking" },
     ],
   },
   {
     label: "Support",
     items: [
       { icon: "🔧", label: "My Incidents",  id: "incidents",  route: "/dashboard/incidents" },
-      { icon: "📝", label: "Report Issue",  id: "report",     route: "/dashboard/report" },
+    //   { icon: "📝", label: "Report Issue",  id: "report",     route: "/dashboard/report" },
     ],
   },
 ];
