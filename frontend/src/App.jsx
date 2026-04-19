@@ -12,6 +12,7 @@ import OAuthCallback from "./pages/OAuthCallback";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
 import FacilitiesPage from "./pages/FacilitiesPage";
 import AdminUsersPage from "./pages/AdminUsersPage";
+import UserIncidentsPage from "./pages/UserIncidentsPage";
 
 function App() {
   return (
@@ -37,6 +38,7 @@ function App() {
             </ProtectedRoute>
           }>
             <Route index element={<UserDashboard />} />
+            <Route path="incidents" element={<UserIncidentsPage />} />
             {/* Add future user pages here */}
             {/* <Route path="bookings"  element={<BookingsPage />} /> */}
             {/* <Route path="incidents" element={<UserIncidentsPage />} /> */}
