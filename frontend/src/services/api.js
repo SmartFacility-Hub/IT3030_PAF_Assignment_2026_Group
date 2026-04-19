@@ -94,5 +94,13 @@ export const bookingApi = {
   cancel: (id) => api.delete(`/api/bookings/${id}`),
 };
 
+// ── Auth API helpers ─────────────────────────────────────────────────────────
+export const authApi = {
+  register: (name, email, password) =>
+    api.post('/api/auth/register', { name, email, password }),
+  login: (email, password) =>
+    api.post('/api/auth/login', { email, password }),
+};
+
 export default api;
 export { API_BASE_URL };
