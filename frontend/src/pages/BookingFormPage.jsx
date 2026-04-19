@@ -54,6 +54,11 @@ function timeToMinutes(t) {
   return h * 60 + m;
 }
 
+function isEquipmentFacility(f) {
+  if (!f) return false;
+  return (f.type ?? '').toString().trim().toUpperCase() === 'EQUIPMENT';
+}
+
 function extractMessage(err) {
   const data = err?.response?.data;
   if (typeof data === 'string') return data;
@@ -154,9 +159,17 @@ export default function BookingFormPage() {
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
-    if (selectedFacility && Number(expectedAttendees) > selectedFacility.capacity) {
+    const cap = selectedFacility?.capacity;
+    const capNum = cap == null ? null : Number(cap);
+    if (
+      selectedFacility &&
+      !isEquipmentFacility(selectedFacility) &&
+      capNum != null &&
+      !Number.isNaN(capNum) &&
+      Number(expectedAttendees) > capNum
+    ) {
       setError(
-        `Expected attendees (${expectedAttendees}) exceeds the capacity of ${selectedFacility.name} (max: ${selectedFacility.capacity} people). Please reduce attendees or choose a larger facility.`
+        `Expected attendees (${expectedAttendees}) exceeds the capacity of ${selectedFacility.name} (max: ${capNum} people). Please reduce attendees or choose a larger facility.`
       );
       return;
     }
@@ -234,7 +247,8 @@ export default function BookingFormPage() {
                 <option value="">Select a facility...</option>
                 {facilities.map((facility) => (
                   <option key={facility.id} value={facility.id}>
-                    {facility.name} — {facility.type} (Capacity: {facility.capacity} | {facility.location})
+                    {facility.name} — {facility.type}{' '}
+                    (Capacity: {isEquipmentFacility(facility) ? 'N/A' : facility.capacity ?? '—'} | {facility.location})
                   </option>
                 ))}
               </select>
@@ -244,7 +258,10 @@ export default function BookingFormPage() {
             {selectedFacility && (
               <div style={{ background: 'var(--accent-glow)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-sm)', padding: '12px', marginTop: '8px', fontSize: '12px', color: 'var(--text-secondary)' }}>
                 <p style={{marginBottom: 4}}><strong>Type:</strong> {selectedFacility.type}</p>
-                <p style={{marginBottom: 4}}><strong>Capacity:</strong> {selectedFacility.capacity} people</p>
+                <p style={{marginBottom: 4}}>
+                  <strong>Capacity:</strong>{' '}
+                  {isEquipmentFacility(selectedFacility) ? 'Not applicable (equipment)' : `${selectedFacility.capacity ?? '—'} people`}
+                </p>
                 <p style={{marginBottom: 4}}><strong>Location:</strong> {selectedFacility.location}</p>
                 {selectedFacility.description && <p style={{marginBottom: 4}}><strong>Description:</strong> {selectedFacility.description}</p>}
                 {(selectedFacility.availability_start || selectedFacility.availabilityStart) && (
@@ -280,7 +297,7 @@ export default function BookingFormPage() {
                 onChange={(e) => setExpectedAttendees(e.target.value)}
                 required
               />
-              {selectedFacility && expectedAttendees && Number(expectedAttendees) > selectedFacility.capacity && (
+              {selectedFacility && !isEquipmentFacility(selectedFacility) && selectedFacility.capacity != null && expectedAttendees && Number(expectedAttendees) > Number(selectedFacility.capacity) && (
                 <p style={{color: 'var(--status-red)', fontSize: '11px', marginTop: '4px'}}>
                   ⚠️ Exceeds max capacity of {selectedFacility.capacity}
                 </p>

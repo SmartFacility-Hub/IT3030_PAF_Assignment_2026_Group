@@ -28,6 +28,17 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     List<Booking> findByUserIdOrderByBookingDateDescStartTimeDesc(String userId);
 
+    /**
+     * Bookings owned by the signed-in user: {@code userId} is the numeric user id string;
+     * {@code email} matches legacy rows that stored the email in {@code userId}.
+     */
+    @Query("""
+            SELECT b FROM Booking b
+            WHERE b.userId = :userId OR LOWER(TRIM(b.userId)) = LOWER(TRIM(:email))
+            ORDER BY b.bookingDate DESC, b.startTime DESC
+            """)
+    List<Booking> findMineForUser(@Param("userId") String userId, @Param("email") String email);
+
     List<Booking> findByStatusOrderByCreatedAtDesc(BookingStatus status);
 
     List<Booking> findAllByOrderByCreatedAtDesc();

@@ -5,6 +5,7 @@ import api, { ticketApi } from "../services/api";
 import BookingStatusBadge from "../components/BookingStatusBadge";
 import RejectModal from "../components/RejectModal";
 import { getAllBookings, approveBooking, rejectBooking } from "../services/bookingService";
+import BookingDetailModal from "../components/BookingDetailModal";
 
 // ─── Page-specific styles only (no sidebar/topbar/themes) ─────────────────────
 const styles = `
@@ -704,6 +705,7 @@ export default function AdminDashboard() {
   const [assigning, setAssigning] = useState(null);  // ticket to assign
   const [statusUpdating, setStatusUpdating] = useState(null); // ticket to update status
   const [selectedTicket, setSelectedTicket] = useState(null);
+  const [selectedBooking, setSelectedBooking] = useState(null);
   
   const [bookings, setBookings] = useState([]);
   const [bookingsLoading, setBookingsLoading] = useState(false);
@@ -1163,7 +1165,7 @@ export default function AdminDashboard() {
             </div>
           ) : (
             approvals.map((b) => (
-              <div className="approval-item" key={b.id}>
+              <div className="approval-item" key={b.id} onDoubleClick={() => setSelectedBooking(b)} style={{ cursor: "pointer" }}>
                 <div className="approval-icon">📅</div>
                 <div className="approval-body">
                   <div className="approval-name">{b.userName || "—"} — {b.resourceName || `Resource #${b.resourceId ?? "—"}`}</div>
@@ -1324,7 +1326,7 @@ export default function AdminDashboard() {
               {(bookings || []).slice(0, 5).map((b) => {
                 const status = (b?.status || "").toString().toUpperCase();
                 return (
-                <tr key={b.id}>
+                <tr key={b.id} onDoubleClick={() => setSelectedBooking(b)} style={{ cursor: "pointer" }}>
                   <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{b.id}</td>
                   <td>{b.resourceName || `Resource #${b.resourceId ?? "—"}`}</td>
                   <td style={{ color: "var(--text-secondary)" }}>{b.userName || "—"}</td>
@@ -1341,9 +1343,7 @@ export default function AdminDashboard() {
                           <button className="reject-btn" onClick={() => openReject(b)}>✕</button>
                         </>
                       )}
-                      {status !== "PENDING" && (
-                        <button className="card-action" style={{ fontSize: 11 }} onClick={() => navigate(`/bookings/${b.id}`)}>View →</button>
-                      )}
+                      <button className="card-action" style={{ fontSize: 11 }} onClick={() => setSelectedBooking(b)}>View →</button>
                     </div>
                   </td>
                 </tr>
@@ -1486,6 +1486,15 @@ export default function AdminDashboard() {
           ticket={selectedTicket}
           onClose={() => setSelectedTicket(null)}
           onRefresh={fetchTickets}
+        />
+      )}
+
+      {/* Booking Detail Modal */}
+      {selectedBooking && (
+        <BookingDetailModal
+          booking={selectedBooking}
+          onClose={() => setSelectedBooking(null)}
+          onRefresh={fetchBookings}
         />
       )}
     </>

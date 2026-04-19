@@ -16,8 +16,8 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
-@RestControllerAdvice
-public class GlobalExceptionHandler {
+@RestControllerAdvice(basePackages = "com.smartfacility.app.incidentservice")
+public class IncidentGlobalExceptionHandler {
 
     //404 - not found
     @ExceptionHandler(ResourceNotFoundException.class)

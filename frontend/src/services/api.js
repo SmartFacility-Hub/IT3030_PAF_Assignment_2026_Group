@@ -88,10 +88,10 @@ export const adminApi = {
 
 // ── Booking API helpers ──────────────────────────────────────────────────────
 export const bookingApi = {
-  fetchMine: () => api.get('/api/bookings'),
+  fetchMine: () => api.get('/api/bookings/my'),
   create: (dto) => api.post('/api/bookings', dto),
   update: (id, dto) => api.put(`/api/bookings/${id}`, dto),
-  cancel: (id) => api.delete(`/api/bookings/${id}`),
+  cancel: (id) => api.put(`/api/bookings/${id}/cancel`),
 };
 
 export default api;

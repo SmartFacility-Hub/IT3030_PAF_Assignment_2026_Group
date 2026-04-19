@@ -20,3 +20,6 @@ export const rejectBooking = (id, reason) => api.put(`/api/bookings/${id}/reject
 
 // BACKEND: PUT /api/bookings/{id}/cancel — BookingController.cancelBooking()
 export const cancelBooking = (id) => api.put(`/api/bookings/${id}/cancel`);
+
+// BACKEND: DELETE /api/bookings/{id} — BookingController.deleteBooking()
+export const deleteBooking = (id) => api.delete(`/api/bookings/${id}`);

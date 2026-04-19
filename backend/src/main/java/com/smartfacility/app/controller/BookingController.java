@@ -3,8 +3,6 @@ package com.smartfacility.app.controller;
 import com.smartfacility.app.dto.BookingRequestDTO;
 import com.smartfacility.app.dto.BookingResponseDTO;
 import com.smartfacility.app.service.BookingService;
-import com.smartfacility.app.model.User;
-import com.smartfacility.app.repository.UserRepository;
 import org.springframework.security.core.Authentication;
 
 import jakarta.validation.Valid;
@@ -18,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -31,7 +30,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class BookingController {
 
     private final BookingService bookingService;
-    private final UserRepository userRepository;
 
     // ENDPOINT: POST /api/bookings
     // ACCESS: Authenticated users
@@ -39,12 +37,7 @@ public class BookingController {
     @PostMapping
     public ResponseEntity<BookingResponseDTO> createBooking(@Valid @RequestBody BookingRequestDTO dto, Authentication authentication) {
         String email = (String) authentication.getPrincipal();
-        User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
-        
-        String userId = String.valueOf(user.getId());
-        String userName = user.getName();
-        
-        BookingResponseDTO response = bookingService.createBooking(dto, userId, userName);
+        BookingResponseDTO response = bookingService.createBooking(dto, email);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -54,9 +47,7 @@ public class BookingController {
     @GetMapping("/my")
     public ResponseEntity<List<BookingResponseDTO>> getMyBookings(Authentication authentication) {
         String email = (String) authentication.getPrincipal();
-        User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
-        String userId = String.valueOf(user.getId());
-        return ResponseEntity.ok(bookingService.getMyBookings(userId));
+        return ResponseEntity.ok(bookingService.getMyBookings(email));
     }
 
     // ENDPOINT: GET /api/bookings
@@ -108,8 +99,16 @@ public class BookingController {
     @PutMapping("/{id}/cancel")
     public ResponseEntity<BookingResponseDTO> cancelBooking(@PathVariable Long id, Authentication authentication) {
         String email = (String) authentication.getPrincipal();
-        User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
-        String userId = String.valueOf(user.getId());
-        return ResponseEntity.ok(bookingService.cancelBooking(id, userId));
+        return ResponseEntity.ok(bookingService.cancelBooking(id, email));
+    }
+
+    // ENDPOINT: DELETE /api/bookings/{id}
+    // ACCESS: Authenticated users (own within 10 min pending) or Admin (cancelled)
+    // CONNECTS TO: BookingService.deleteBooking()
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteBooking(@PathVariable Long id, Authentication authentication) {
+        String email = (String) authentication.getPrincipal();
+        bookingService.deleteBooking(id, email);
+        return ResponseEntity.noContent().build();
     }
 }

@@ -1,10 +1,7 @@
 package com.smartfacility.app.security;
 
-import com.smartfacility.app.model.ERole;
-import com.smartfacility.app.model.Role;
 import com.smartfacility.app.model.User;
-import com.smartfacility.app.repository.RoleRepository;
-import com.smartfacility.app.repository.UserRepository;
+import com.smartfacility.app.service.UserProvisioningService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -15,26 +12,20 @@ import org.springframework.security.web.authentication.AuthenticationSuccessHand
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
-import java.util.Set;
 
 @Component
 public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
-    private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
+    private final UserProvisioningService userProvisioningService;
     private final JwtUtils jwtUtils;
 
     @Value("${app.frontend.url}")
     private String frontendUrl;
 
-    public OAuth2SuccessHandler(UserRepository userRepository,
-                                 RoleRepository roleRepository,
-                                 JwtUtils jwtUtils) {
-        this.userRepository = userRepository;
-        this.roleRepository = roleRepository;
+    public OAuth2SuccessHandler(UserProvisioningService userProvisioningService,
+                                JwtUtils jwtUtils) {
+        this.userProvisioningService = userProvisioningService;
         this.jwtUtils = jwtUtils;
     }
 
@@ -51,31 +42,14 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         String picture = oAuth2User.getAttribute("picture");
         String googleId = oAuth2User.getAttribute("sub");
 
-        // Find or create user
-        User user = userRepository.findByGoogleId(googleId)
-                .orElseGet(() -> {
-                    User newUser = new User(email, name, picture, googleId);
-
-                    // Assign default ROLE_USER
-                    Set<Role> roles = new HashSet<>();
-                    roleRepository.findByName(ERole.ROLE_USER).ifPresent(roles::add);
-                    newUser.setRoles(roles);
-
-                    return userRepository.save(newUser);
-                });
-
-        // Update profile info on each login
-        user.setName(name);
-        user.setPicture(picture);
-        user.setEmail(email);
-        userRepository.save(user);
+        User user = userProvisioningService.provisionFromGoogle(email, name, picture, googleId);
 
         // Generate JWT
         List<String> roles = user.getRoles().stream()
                 .map(r -> r.getName().name())
                 .toList();
 
-        String token = jwtUtils.generateToken(email, name, picture, user.getId(), roles);
+        String token = jwtUtils.generateToken(user.getEmail(), user.getName(), user.getPicture(), user.getId(), roles);
 
         // Redirect to frontend with token
         response.sendRedirect(frontendUrl + "/oauth2/callback?token=" + token);

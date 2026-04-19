@@ -325,8 +325,13 @@ export default function AdminLayout() {
     applyTheme(next);
   };
 
-  const activeNavId = routeToNavId[location.pathname] || "dashboard";
-  const crumb = breadcrumbs[location.pathname] || { title: "Dashboard", sub: "Overview" };
+  const activeNavId = location.pathname.startsWith("/bookings") 
+    ? "bookings" 
+    : (routeToNavId[location.pathname] || "dashboard");
+    
+  const crumb = location.pathname.startsWith("/bookings") 
+    ? { title: "Bookings", sub: "Management" } 
+    : (breadcrumbs[location.pathname] || { title: "Dashboard", sub: "Overview" });
 
   const getInitials = (name) =>
     name ? name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase() : "?";

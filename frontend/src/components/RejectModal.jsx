@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import '../styles/bookings.css';
 
 /**
@@ -20,11 +21,19 @@ export default function RejectModal({ open, title, onClose, onConfirm, busy }) {
     onConfirm(trimmed);
   };
 
-  return (
-    <div className="reject-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="reject-modal-title">
-      <div className="reject-modal">
+  const modal = (
+    <div
+      className="reject-modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="reject-modal-title"
+      onClick={(e) => e.target === e.currentTarget && !busy && onClose()}
+    >
+      <div className="reject-modal" onClick={(e) => e.stopPropagation()}>
         <h3 id="reject-modal-title">{title || 'Reject booking'}</h3>
-        <p>Provide a short reason. It will be stored with the booking record.</p>
+        <p className="reject-modal-desc">
+          Provide a short reason. It will be stored with the booking record.
+        </p>
         <form onSubmit={handleSubmit}>
           <textarea
             value={reason}
@@ -46,4 +55,6 @@ export default function RejectModal({ open, title, onClose, onConfirm, busy }) {
       </div>
     </div>
   );
+
+  return createPortal(modal, document.body);
 }

@@ -3,6 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api, { ticketApi, bookingApi, API_BASE_URL } from "../services/api";
 import facilityService from "../services/facilityService";
+import BookingDetailModal from "../components/BookingDetailModal";
+import { deleteBooking } from "../services/bookingService";
+
 
 // ─── Theme Definitions ────────────────────────────────────────────────────────
 const themes = {
@@ -114,9 +117,58 @@ const styles = `
   .ud-theme-toggle:hover { transform: rotate(12deg) scale(1.1); border-color: var(--accent-border); }
 
   .ud-main {
-    max-width: 1000px; margin: 0 auto;
+    max-width: 1160px; margin: 0 auto;
     padding: 100px 40px 60px;
   }
+
+  /* KPI cards (aligned with AdminBookingsPage) */
+  .ud-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .ud-kpi-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 18px 20px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+  }
+  .ud-kpi-card:hover {
+    border-color: var(--accent-border);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-card);
+  }
+  .ud-kpi-icon { font-size: 22px; margin-bottom: 10px; line-height: 1; }
+  .ud-kpi-value {
+    font-family: var(--font-display);
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--text-primary);
+    letter-spacing: -0.03em;
+  }
+  .ud-kpi-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .ud-kpi-sublabel {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 8px;
+    line-height: 1.35;
+    font-weight: 500;
+  }
+
+  .ud-table-wrap { overflow-x: auto; }
+  .ud-bookings-table-wrap .ud-bookings-table tbody tr { cursor: default; }
+  .ud-tickets-card table tbody tr { cursor: pointer; }
   .ud-greeting {
     font-family: var(--font-display); font-size: 32px; font-weight: 800;
     color: var(--text-primary); margin-bottom: 6px;
@@ -228,12 +280,58 @@ const styles = `
   }
   th:first-child { padding-left: 22px; }
   th:last-child  { padding-right: 22px; }
-  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; cursor: pointer; }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; cursor: default; }
   tbody tr:last-child { border-bottom: none; }
   tbody tr:hover { background: var(--bg-elevated); }
   td { padding: 12px 16px; color: var(--text-secondary); vertical-align: middle; }
   td:first-child { padding-left: 22px; color: var(--text-primary); font-weight: 500; }
   td:last-child  { padding-right: 22px; }
+
+  /* Booking status badges (same pattern as AdminBookingsPage) */
+  .ud-booking-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+    padding: 3px 10px; border-radius: 100px; white-space: nowrap;
+  }
+  .ud-booking-badge-dot { width: 5px; height: 5px; border-radius: 50%; }
+  .ud-booking-badge.pending  { background: var(--status-amber-bg); color: var(--status-amber); }
+  .ud-booking-badge.approved { background: var(--status-green-bg); color: var(--status-green); }
+  .ud-booking-badge.rejected { background: var(--status-red-bg);   color: var(--status-red); }
+  .ud-booking-badge.cancelled { background: var(--bg-elevated); color: var(--text-muted); }
+
+  .ud-resource-pill {
+    display: inline-flex;
+    align-items: center;
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+
+  .ud-booking-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; align-items: center; }
+  .ud-btn-bk-warn {
+    padding: 5px 12px; border-radius: var(--radius-sm);
+    background: var(--status-amber-bg); color: var(--status-amber);
+    border: 1px solid var(--accent-border);
+    font-family: var(--font-mono); font-size: 11px; cursor: pointer; transition: all 0.15s;
+  }
+  .ud-btn-bk-warn:hover:not(:disabled) { filter: brightness(1.08); }
+  .ud-btn-bk-danger {
+    padding: 5px 12px; border-radius: var(--radius-sm);
+    background: var(--status-red-bg); color: var(--status-red);
+    border: 1px solid var(--status-red-bg);
+    font-family: var(--font-mono); font-size: 11px; cursor: pointer; transition: all 0.15s;
+  }
+  .ud-btn-bk-danger:hover:not(:disabled) { filter: brightness(1.08); }
+  .ud-btn-bk-danger:disabled, .ud-btn-bk-warn:disabled { opacity: 0.55; cursor: not-allowed; }
 
   .badge {
     display: inline-flex; align-items: center; gap: 5px;
@@ -428,6 +526,26 @@ function PriorityBadge({ priority }) {
   return <span className={`badge ${priority}`}>{priority}</span>;
 }
 
+function normalizeBookingStatus(status) {
+  return (status ?? "").toString().trim().toUpperCase() || "UNKNOWN";
+}
+
+function BookingStatusBadge({ status }) {
+  const st = normalizeBookingStatus(status);
+  const cls = ["PENDING", "APPROVED", "REJECTED", "CANCELLED"].includes(st) ? st.toLowerCase() : "cancelled";
+  const dot =
+    st === "APPROVED" ? "var(--status-green)" :
+    st === "REJECTED" ? "var(--status-red)" :
+    st === "PENDING" ? "var(--status-amber)" :
+    "var(--text-muted)";
+  return (
+    <span className={`ud-booking-badge ${cls}`}>
+      <span className="ud-booking-badge-dot" style={{ background: dot }} />
+      {st === "UNKNOWN" ? status || "—" : st}
+    </span>
+  );
+}
+
 function formatDate(iso) {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" });
@@ -449,52 +567,123 @@ function toLocalDateTimePayload(value) {
 // ─── Booking Modals ───────────────────────────────────────────────────────────
 function CreateBookingModal({ onClose, onCreated }) {
   const [facilities, setFacilities] = useState([]);
+  const [selectedFacility, setSelectedFacility] = useState(null);
   const [loadingFacilities, setLoadingFacilities] = useState(true);
-  const [form, setForm] = useState({
-    facilityId: "",
-    startAt: "",
-    endAt: "",
+  const [formData, setFormData] = useState({
+    resourceId: "",
+    resourceName: "",
+    bookingDate: "",
+    startTime: "",
+    endTime: "",
     purpose: "",
+    expectedAttendees: ""
   });
-  const [saving, setSaving] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let mounted = true;
-    (async () => {
+    const load = async () => {
       try {
         setLoadingFacilities(true);
-        const res = await facilityService.getAll({ status: "ACTIVE" });
-        if (mounted) setFacilities(res.data || []);
-      } catch (_) {
+        const res = await facilityService.getAll();
+        if (mounted) {
+          const active = (res.data || []).filter(f => f.status === 'ACTIVE' || f.status === 'active');
+          setFacilities(active);
+        }
+      } catch (err) {
         if (mounted) setFacilities([]);
       } finally {
         if (mounted) setLoadingFacilities(false);
       }
-    })();
+    };
+    load();
     return () => { mounted = false; };
   }, []);
 
-  const handleField = (e) => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+  const isEquipmentFacility = (f) => {
+    if (!f) return false;
+    const t = (f.type ?? "").toString().trim().toUpperCase();
+    return t === "EQUIPMENT";
+  };
+
+  const handleFacilityChange = (e) => {
+    const id = Number(e.target.value);
+    const facility = facilities.find(f => f.id === id);
+    setSelectedFacility(facility || null);
+    setFormData(prev => ({
+      ...prev,
+      resourceId: id,
+      resourceName: facility ? facility.name : ''
+    }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
-    if (!form.facilityId) { setError("Please select a facility."); return; }
-    if (!form.startAt || !form.endAt) { setError("Please select start and end time."); return; }
-    setSaving(true);
+    setError(null);
+
+    if (!formData.resourceId) {
+      setError('Please select a facility');
+      return;
+    }
+
+    const cap = selectedFacility?.capacity;
+    const capNum = cap == null ? null : Number(cap);
+    if (
+      selectedFacility &&
+      !isEquipmentFacility(selectedFacility) &&
+      capNum != null &&
+      !Number.isNaN(capNum) &&
+      Number(formData.expectedAttendees) > capNum
+    ) {
+      setError(
+        `Expected attendees (${formData.expectedAttendees}) exceeds ` +
+        `the maximum capacity of ${selectedFacility.name} ` +
+        `(${capNum} people). ` +
+        `Please reduce attendees or choose a larger facility.`
+      );
+      return;
+    }
+
+    if (formData.startTime >= formData.endTime) {
+      setError('End time must be after start time');
+      return;
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    if (formData.bookingDate < today) {
+      setError('Booking date cannot be in the past');
+      return;
+    }
+
+    const payload = {
+      resourceId: formData.resourceId,
+      resourceName: formData.resourceName,
+      bookingDate: formData.bookingDate,
+      startTime: formData.startTime,
+      endTime: formData.endTime,
+      purpose: formData.purpose || '',
+      expectedAttendees: Number(formData.expectedAttendees)
+    };
+
     try {
-      await bookingApi.create({
-        facilityId: Number(form.facilityId),
-        startAt: toLocalDateTimePayload(form.startAt),
-        endAt: toLocalDateTimePayload(form.endAt),
-        purpose: form.purpose?.trim() || null,
-      });
+      setSubmitting(true);
+      await bookingApi.create(payload);
       onCreated();
     } catch (err) {
-      setError(err.response?.data?.message || err.response?.data?.error || "Failed to create booking.");
+      if (err.response?.status === 409) {
+        setError(
+          '⚠️ Time Conflict! This facility is already booked for the ' +
+          'selected time slot. Please choose a different time.'
+        );
+      } else if (err.response?.status === 400) {
+        const msg = err.response?.data?.message || JSON.stringify(err.response?.data);
+        setError('Validation error: ' + msg);
+      } else {
+        setError(err.response?.data?.message || err.response?.data?.error || 'Failed to submit booking. Please try again.');
+      }
     } finally {
-      setSaving(false);
+      setSubmitting(false);
     }
   };
 
@@ -506,7 +695,7 @@ function CreateBookingModal({ onClose, onCreated }) {
         <form onSubmit={handleSubmit}>
           <div className="ud-form-group">
             <label className="ud-label">Facility *</label>
-            <select className="ud-select" name="facilityId" value={form.facilityId} onChange={handleField} required>
+            <select className="ud-select" value={formData.resourceId} onChange={handleFacilityChange} required>
               <option value="" disabled>
                 {loadingFacilities ? "Loading facilities…" : "Select a facility"}
               </option>
@@ -518,95 +707,60 @@ function CreateBookingModal({ onClose, onCreated }) {
             </select>
           </div>
 
+          <div className="ud-form-group">
+            <label className="ud-label">Date *</label>
+            <input className="ud-input" type="date" value={formData.bookingDate} onChange={e => setFormData({...formData, bookingDate: e.target.value})} required />
+          </div>
+
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div className="ud-form-group">
-              <label className="ud-label">Start *</label>
-              <input className="ud-input" type="datetime-local" name="startAt" value={form.startAt} onChange={handleField} required />
+              <label className="ud-label">Start Time *</label>
+              <input className="ud-input" type="time" value={formData.startTime} onChange={e => setFormData({...formData, startTime: e.target.value})} required />
             </div>
             <div className="ud-form-group">
-              <label className="ud-label">End *</label>
-              <input className="ud-input" type="datetime-local" name="endAt" value={form.endAt} onChange={handleField} required />
+              <label className="ud-label">End Time *</label>
+              <input className="ud-input" type="time" value={formData.endTime} onChange={e => setFormData({...formData, endTime: e.target.value})} required />
             </div>
           </div>
 
           <div className="ud-form-group">
-            <label className="ud-label">Purpose (optional)</label>
-            <input className="ud-input" name="purpose" placeholder="e.g. Group study / Lab practice"
-              value={form.purpose} onChange={handleField} />
+            <label className="ud-label">Purpose *</label>
+            <input className="ud-input" placeholder="e.g. Group study / Lab practice"
+              value={formData.purpose} onChange={e => setFormData({...formData, purpose: e.target.value})} required />
+          </div>
+
+          <div className="ud-form-group">
+            <label className="ud-label">Expected Attendees *</label>
+            <input
+              className="ud-input"
+              type="number"
+              min="1"
+              value={formData.expectedAttendees}
+              onChange={(e) => setFormData({...formData, expectedAttendees: e.target.value})}
+              placeholder="Number of attendees"
+              required
+            />
+            {selectedFacility && !isEquipmentFacility(selectedFacility) && selectedFacility.capacity != null && formData.expectedAttendees && Number(formData.expectedAttendees) > Number(selectedFacility.capacity) && (
+              <p style={{color: '#DC2626', fontSize: '12px', marginTop: '4px'}}>
+                ⚠️ Exceeds capacity! Maximum allowed: {selectedFacility.capacity} people
+              </p>
+            )}
+            {selectedFacility && !isEquipmentFacility(selectedFacility) && selectedFacility.capacity != null && (
+              <p style={{color: '#78716C', fontSize: '12px', marginTop: '4px'}}>
+                Max capacity for {selectedFacility.name}: {selectedFacility.capacity} people
+              </p>
+            )}
+            {selectedFacility && isEquipmentFacility(selectedFacility) && (
+              <p style={{color: 'var(--text-muted)', fontSize: '12px', marginTop: '4px'}}>
+                Equipment booking — attendee count is optional metadata (no room capacity limit).
+              </p>
+            )}
           </div>
 
           <div className="ud-modal-footer">
             <button type="button" className="ud-btn-ghost" onClick={onClose}>Cancel</button>
-            <button type="submit" className="ud-btn-primary" disabled={saving || loadingFacilities}>
-              {saving ? "Creating…" : "Create Booking"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-function EditBookingModal({ booking, onClose, onSaved }) {
-  const [form, setForm] = useState(() => ({
-    startAt: booking?.startAt ? String(booking.startAt).slice(0, 16) : "",
-    endAt: booking?.endAt ? String(booking.endAt).slice(0, 16) : "",
-    purpose: booking?.purpose || "",
-  }));
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-
-  const handleField = (e) => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    if (!form.startAt || !form.endAt) { setError("Please select start and end time."); return; }
-    setSaving(true);
-    try {
-      await bookingApi.update(booking.id, {
-        startAt: toLocalDateTimePayload(form.startAt),
-        endAt: toLocalDateTimePayload(form.endAt),
-        purpose: form.purpose?.trim() || null,
-      });
-      onSaved();
-    } catch (err) {
-      setError(err.response?.data?.message || err.response?.data?.error || "Failed to update booking.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="ud-modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="ud-modal">
-        <div className="ud-modal-title">✏️ Update Booking</div>
-        {error && <div className="ud-error">{error}</div>}
-        <form onSubmit={handleSubmit}>
-          <div className="ud-form-group">
-            <label className="ud-label">Facility</label>
-            <div className="ud-input" style={{ display: "flex", alignItems: "center" }}>
-              {booking.facilityName} — {booking.facilityType} — {booking.location}
-            </div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <div className="ud-form-group">
-              <label className="ud-label">Start *</label>
-              <input className="ud-input" type="datetime-local" name="startAt" value={form.startAt} onChange={handleField} required />
-            </div>
-            <div className="ud-form-group">
-              <label className="ud-label">End *</label>
-              <input className="ud-input" type="datetime-local" name="endAt" value={form.endAt} onChange={handleField} required />
-            </div>
-          </div>
-          <div className="ud-form-group">
-            <label className="ud-label">Purpose (optional)</label>
-            <input className="ud-input" name="purpose" value={form.purpose} onChange={handleField} />
-          </div>
-          <div className="ud-modal-footer">
-            <button type="button" className="ud-btn-ghost" onClick={onClose}>Cancel</button>
-            <button type="submit" className="ud-btn-primary" disabled={saving}>
-              {saving ? "Saving…" : "Save Changes"}
+            <button type="submit" className="ud-btn-primary" disabled={submitting || loadingFacilities}>
+              {submitting ? "Creating…" : "Create Booking"}
             </button>
           </div>
         </form>
@@ -928,6 +1082,7 @@ export default function UserDashboard() {
   const [bookingsLoading, setBookingsLoading] = useState(true);
   const [showCreateBooking, setShowCreateBooking] = useState(false);
   const [editingBooking, setEditingBooking] = useState(null);
+  const [selectedBooking, setSelectedBooking] = useState(null);
 
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -990,13 +1145,105 @@ export default function UserDashboard() {
   ]));
   const markAllRead = () => setNotifications(n => n.map(x => ({ ...x, unread: false })));
 
-  const cancelBooking = async (id) => {
-    if (!window.confirm("Cancel this booking?")) return;
-    try {
-      await bookingApi.cancel(id);
-      fetchBookings();
-    } catch (_) {}
+  const [cancelModalId, setCancelModalId] = useState(null);
+  const [cancelError, setCancelError] = useState("");
+  const [cancelling, setCancelling] = useState(false);
+
+  const openCancelModal = (id) => {
+    setCancelError("");
+    setCancelModalId(id);
   };
+
+  const confirmCancel = async () => {
+    if (!cancelModalId) return;
+    setCancelError("");
+    setCancelling(true);
+    try {
+      const id = Number(cancelModalId);
+      if (!Number.isFinite(id)) {
+        setCancelError("Invalid booking reference.");
+        return;
+      }
+      await bookingApi.cancel(id);
+      setCancelModalId(null);
+      await fetchBookings();
+    } catch (err) {
+      const d = err.response?.data;
+      const msg =
+        (typeof d === "string" ? d : null) ||
+        d?.message ||
+        d?.error ||
+        err.message ||
+        "Could not cancel this booking. Please try again.";
+      setCancelError(typeof msg === "string" ? msg : JSON.stringify(msg));
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const handleDelete = async (bookingId, createdAt) => {
+    // Check 10 min window on frontend too before calling API
+    const createdTime = new Date(createdAt);
+    const now = new Date();
+    const diffMinutes = (now - createdTime) / 1000 / 60;
+    
+    if (diffMinutes > 10) {
+      alert('Booking can only be deleted within 10 minutes of creation.');
+      return;
+    }
+    
+    if (!window.confirm(
+      'Delete this booking request permanently? This cannot be undone.'
+    )) return;
+    
+    try {
+      // BACKEND: DELETE /api/bookings/{id}
+      await deleteBooking(bookingId);
+      fetchBookings(); // refresh list
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Failed to delete booking';
+      alert(msg);
+    }
+  };
+
+  const totalBookings = bookings.length;
+  const totalHours = bookings.reduce((acc, b) => {
+    if (b.startTime && b.endTime) {
+      const st = normalizeBookingStatus(b.status);
+      if (st === "CANCELLED" || st === "REJECTED") return acc;
+      const parts = (t) => (typeof t === "string" ? t.split(":").map(Number) : []);
+      const [sh, sm, ss] = parts(b.startTime);
+      const [eh, em, es] = parts(b.endTime);
+      if ([sh, sm, eh, em].some((n) => Number.isNaN(n))) return acc;
+      const startM = sh * 60 + sm + (ss || 0) / 60;
+      const endM = eh * 60 + em + (es || 0) / 60;
+      return acc + Math.max(0, (endM - startM) / 60);
+    }
+    return acc;
+  }, 0).toFixed(1);
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const pendingCount = bookings.filter((b) => normalizeBookingStatus(b.status) === "PENDING").length;
+  const approvedCount = bookings.filter((b) => normalizeBookingStatus(b.status) === "APPROVED").length;
+  const rejectedCount = bookings.filter((b) => normalizeBookingStatus(b.status) === "REJECTED").length;
+  const cancelledCount = bookings.filter((b) => normalizeBookingStatus(b.status) === "CANCELLED").length;
+  const upcomingCount = bookings.filter((b) => {
+    const st = normalizeBookingStatus(b.status);
+    if (st !== "PENDING" && st !== "APPROVED") return false;
+    if (!b.bookingDate) return false;
+    return String(b.bookingDate) >= todayStr;
+  }).length;
+
+  const mostBooked =
+    totalBookings > 0
+      ? Object.entries(
+          bookings.reduce((acc, b) => {
+            const name = b.resourceName || "—";
+            acc[name] = (acc[name] || 0) + 1;
+            return acc;
+          }, {})
+        ).sort((a, b) => b[1] - a[1])[0][0]
+      : "—";
 
   return (
     <>
@@ -1046,13 +1293,52 @@ export default function UserDashboard() {
         </div>
 
         {activeTab === "BOOKINGS" && (
-          <div className="ud-card fade-in-1">
+          <div className="fade-in-1">
+            <div className="ud-kpi-grid">
+              <div className="ud-kpi-card">
+                <div className="ud-kpi-icon">📅</div>
+                <div className="ud-kpi-value">{bookingsLoading ? "—" : totalBookings}</div>
+                <div className="ud-kpi-label">Total bookings</div>
+                {!bookingsLoading && (
+                  <div className="ud-kpi-sublabel">{totalHours} active hours scheduled</div>
+                )}
+              </div>
+              <div className="ud-kpi-card">
+                <div className="ud-kpi-icon">⏰</div>
+                <div className="ud-kpi-value">{bookingsLoading ? "—" : pendingCount}</div>
+                <div className="ud-kpi-label">Pending approval</div>
+              </div>
+              <div className="ud-kpi-card">
+                <div className="ud-kpi-icon">✅</div>
+                <div className="ud-kpi-value">{bookingsLoading ? "—" : approvedCount}</div>
+                <div className="ud-kpi-label">Approved</div>
+              </div>
+              
+              <div className="ud-kpi-card">
+                <div className="ud-kpi-icon">❌</div>
+                <div className="ud-kpi-value">{bookingsLoading ? "—" : rejectedCount}</div>
+                <div className="ud-kpi-label">Rejected</div>
+              </div>
+              <div className="ud-kpi-card">
+                <div className="ud-kpi-icon">⛔</div>
+                <div className="ud-kpi-value">{bookingsLoading ? "—" : cancelledCount}</div>
+                <div className="ud-kpi-label">Cancelled</div>
+              </div>
+              <div className="ud-kpi-card">
+                <div className="ud-kpi-icon">🏛️</div>
+                <div className="ud-kpi-value" style={{ fontSize: "15px", lineHeight: 1.35, wordBreak: "break-word" }}>
+                  {bookingsLoading ? "—" : mostBooked}
+                </div>
+                <div className="ud-kpi-label">Most-used facility</div>
+              </div>
+            </div>
+
+            <div className="ud-card">
             <div className="ud-card-header">
               <div className="ud-card-title">📅 My Bookings
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: 11,
                   background: "var(--accent-glow)", color: "var(--accent)",
                   padding: "2px 8px", borderRadius: "100px", marginLeft: 6 }}>
-                  {bookings.length}
                 </span>
               </div>
               <button className="ud-btn-ghost" style={{ fontSize: 12 }} onClick={fetchBookings}>↺ Refresh</button>
@@ -1063,49 +1349,132 @@ export default function UserDashboard() {
             ) : bookings.length === 0 ? (
               <div className="ud-empty-state">No bookings yet. Click “New Booking” to create one.</div>
             ) : (
-              <div style={{ overflowX: "auto" }}>
-                <table>
+              <div className="ud-table-wrap ud-bookings-table-wrap">
+                <table className="ud-bookings-table">
                   <thead>
                     <tr>
-                      <th>ID</th>
-                      <th>Facility</th>
-                      <th>When</th>
+                      {/* <th>ID</th> */}
+                      <th>Resource</th>
+                      <th>Date</th>
+                      <th>Time</th>
+                      <th>Purpose</th>
+                      <th>Attendees</th>
                       <th>Status</th>
-                      <th style={{ textAlign: "right" }}>Actions</th>
+                      <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {bookings.map(b => (
-                      <tr key={b.id}>
-                        <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>#{b.id}</td>
+                    {bookings.map((booking) => {
+                      const st = normalizeBookingStatus(booking.status);
+                      let purposePreview = booking.purpose ?? "—";
+                      if (purposePreview.length > 36) purposePreview = purposePreview.slice(0, 36) + "…";
+                      return (
+                      <tr key={booking.id} onDoubleClick={() => setSelectedBooking(booking)} style={{ cursor: "pointer" }}>
+                        {/* <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>#{booking.id}</td> */}
                         <td>
-                          <div style={{ color: "var(--text-primary)", fontWeight: 600 }}>{b.facilityName}</div>
-                          <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{b.facilityType} · {b.location}</div>
-                        </td>
-                        <td style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>
-                          {formatDateTime(b.startAt)} → {formatTime(b.endAt)}
-                        </td>
-                        <td>
-                          <span className={`badge ${b.status}`} style={{ background: "var(--bg-elevated)", color: "var(--text-muted)" }}>
-                            {b.status}
+                          <span className="ud-resource-pill" title={booking.resourceName || ""}>
+                            {booking.resourceName ?? "—"}
                           </span>
                         </td>
-                        <td style={{ textAlign: "right" }}>
-                          <button className="ud-btn-ghost" style={{ fontSize: 12, marginRight: 8 }}
-                            onClick={() => setEditingBooking(b)} disabled={b.status === "CANCELLED"}>
-                            Edit
-                          </button>
-                          <button className="ud-btn-ghost" style={{ fontSize: 12, borderColor: "rgba(248,113,113,0.35)", color: "var(--status-red)" }}
-                            onClick={() => cancelBooking(b.id)} disabled={b.status === "CANCELLED"}>
-                            Cancel
-                          </button>
+                        <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
+                          {booking.bookingDate != null ? String(booking.bookingDate) : "—"}
+                        </td>
+                        <td style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>
+                          {booking.startTime ?? "—"} – {booking.endTime ?? "—"}
+                        </td>
+                        <td title={booking.purpose || ""}>{purposePreview}</td>
+                        <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{booking.expectedAttendees ?? "—"}</td>
+                        <td>
+                          <BookingStatusBadge status={booking.status} />
+                        </td>
+                        <td>
+                          <div className="ud-booking-actions">
+                            {st === "PENDING" && (() => {
+                              const createdTime = new Date(booking.createdAt);
+                              const diffMinutes = (new Date() - createdTime) / 1000 / 60;
+                              return (
+                                <>
+                                  <button type="button" className="ud-btn-bk-warn" onClick={() => openCancelModal(booking.id)}>
+                                    Cancel request
+                                  </button>
+                                  {diffMinutes <= 10 && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); handleDelete(booking.id, booking.createdAt); }}
+                                      style={{
+                                        background: "transparent",
+                                        border: "1px solid #DC2626",
+                                        color: "#DC2626",
+                                        borderRadius: "8px",
+                                        padding: "5px 12px",
+                                        fontSize: "11px",
+                                        fontWeight: "600",
+                                        cursor: "pointer",
+                                        whiteSpace: "nowrap"
+                                      }}
+                                    >
+                                      🗑 Delete
+                                    </button>
+                                  )}
+                                </>
+                              );
+                            })()}
+                            {st === "APPROVED" && (
+                              <button type="button" className="ud-btn-bk-danger" onClick={() => openCancelModal(booking.id)}>
+                                Cancel booking
+                              </button>
+                            )}
+                            {st === "REJECTED" && (
+                              <span style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "right", maxWidth: 200 }} title={booking.rejectionReason || ""}>
+                                {booking.rejectionReason ? `Reason: ${booking.rejectionReason.length > 80 ? booking.rejectionReason.slice(0, 80) + "…" : booking.rejectionReason}` : "Rejected"}
+                              </span>
+                            )}
+                            {st === "CANCELLED" && (
+                              <span style={{ fontSize: 12, color: "var(--text-muted)" }}>—</span>
+                            )}
+                            <button type="button" className="ud-btn-ghost" style={{ padding: '5px 12px', fontSize: 11 }} onClick={(e) => { e.stopPropagation(); setSelectedBooking(booking); }}>
+                              Details
+                            </button>
+                          </div>
                         </td>
                       </tr>
-                    ))}
+                    );
+                    })}
                   </tbody>
                 </table>
               </div>
             )}
+          </div>
+          </div>
+        )}
+
+        {/* Custom Cancel Modal */}
+        {cancelModalId && (
+          <div
+            className="ud-modal-overlay"
+            style={{ zIndex: 250 }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget && !cancelling) {
+                setCancelModalId(null);
+                setCancelError("");
+              }
+            }}
+          >
+            <div className="ud-modal" style={{ maxWidth: "440px" }} onClick={(e) => e.stopPropagation()}>
+              <div className="ud-modal-title" style={{ color: "var(--status-red)" }}>Confirm cancellation</div>
+              <p style={{ margin: "0 0 14px", color: "var(--text-muted)", lineHeight: 1.5 }}>
+                This will mark booking <strong style={{ color: "var(--text-primary)" }}>#{cancelModalId}</strong> as cancelled. You cannot undo this from the dashboard.
+              </p>
+              {cancelError ? <div className="ud-error" style={{ marginBottom: 14 }}>{cancelError}</div> : null}
+              <div className="ud-modal-footer">
+                <button type="button" className="ud-btn-ghost" disabled={cancelling} onClick={() => { setCancelModalId(null); setCancelError(""); }}>
+                  Keep booking
+                </button>
+                <button type="button" className="ud-btn-primary" style={{ background: "var(--status-red)", border: "1px solid var(--status-red)" }} disabled={cancelling} onClick={confirmCancel}>
+                  {cancelling ? "Cancelling…" : "Yes, cancel"}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -1261,13 +1630,13 @@ export default function UserDashboard() {
           onCreated={() => { setShowCreateBooking(false); fetchBookings(); }}
         />
       )}
-      {editingBooking && (
+      {/* {editingBooking && (
         <EditBookingModal
           booking={editingBooking}
           onClose={() => setEditingBooking(null)}
           onSaved={() => { setEditingBooking(null); fetchBookings(); }}
         />
-      )}
+      )} */}
       {showCreate && (
         <CreateTicketModal
           onClose={() => setShowCreate(false)}
@@ -1279,6 +1648,13 @@ export default function UserDashboard() {
           ticket={selectedTicket}
           onClose={() => setSelectedTicket(null)}
           onRefresh={fetchTickets}
+        />
+      )}
+      {selectedBooking && (
+        <BookingDetailModal
+          booking={selectedBooking}
+          onClose={() => setSelectedBooking(null)}
+          onRefresh={fetchBookings}
         />
       )}
     </>

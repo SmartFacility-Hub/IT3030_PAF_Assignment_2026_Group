@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { approveBooking, getAllBookings, rejectBooking } from '../services/bookingService';
+import { approveBooking, getAllBookings, rejectBooking, deleteBooking } from '../services/bookingService';
 import RejectModal from '../components/RejectModal';
+import BookingDetailModal from '../components/BookingDetailModal';
 
 const styles = `
   .page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 32px; gap: 16px; }
@@ -379,6 +380,7 @@ export default function AdminBookingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [viewMode, setViewMode] = useState('table');
+  const [selectedBooking, setSelectedBooking] = useState(null);
   
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -463,6 +465,21 @@ export default function AdminBookingsPage() {
       }
     } finally {
       setBusy(null, '');
+    }
+  };
+
+  const handleAdminDelete = async (bookingId) => {
+    if (!window.confirm(
+      'Permanently delete this cancelled booking? This cannot be undone.'
+    )) return;
+    
+    try {
+      // BACKEND: DELETE /api/bookings/{id}
+      await deleteBooking(bookingId);
+      load(); // refresh list
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Failed to delete booking';
+      alert(msg);
     }
   };
 
@@ -582,7 +599,7 @@ export default function AdminBookingsPage() {
                   if (purpose.length > 30) purpose = purpose.substring(0, 30) + '...';
 
                   return (
-                  <tr key={b.id}>
+                  <tr key={b.id} onDoubleClick={() => setSelectedBooking(b)} style={{ cursor: 'pointer' }}>
                     <td>{b.userName ?? '—'}</td>
                     <td><span className="badge type" style={{background: 'var(--bg-elevated)', color: 'var(--text-primary)'}}>{b.resourceName ?? '—'}</span></td>
                     <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{b.bookingDate ?? '—'}</td>
@@ -611,7 +628,24 @@ export default function AdminBookingsPage() {
                             </button>
                           </>
                         )}
-                        <button className="btn-edit" onClick={() => navigate(`/bookings/${id}`)}>ℹ Details</button>
+                        {st === 'CANCELLED' && (
+                          <button
+                            onClick={() => handleAdminDelete(b.id)}
+                            style={{
+                              background: "transparent",
+                              border: "1px solid #DC2626",
+                              color: "#DC2626",
+                              borderRadius: "8px",
+                              padding: "5px 12px",
+                              fontSize: "12px",
+                              fontWeight: "600",
+                              cursor: "pointer"
+                            }}
+                          >
+                            🗑 Delete
+                          </button>
+                        )}
+                        <button className="btn-edit" onClick={() => setSelectedBooking(b)}>ℹ Details</button>
                       </div>
                     </td>
                   </tr>
@@ -632,6 +666,13 @@ export default function AdminBookingsPage() {
         onClose={() => !busyId && setRejectForId(null)}
         onConfirm={handleRejectConfirm}
       />
+      {selectedBooking && (
+        <BookingDetailModal
+          booking={selectedBooking}
+          onClose={() => setSelectedBooking(null)}
+          onRefresh={load}
+        />
+      )}
     </div>
   );
 }

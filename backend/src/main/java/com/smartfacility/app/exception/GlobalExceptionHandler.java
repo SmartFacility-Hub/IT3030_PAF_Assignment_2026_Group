@@ -19,8 +19,11 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(BookingConflictException.class)
-    public ResponseEntity<Map<String, Object>> handleBookingConflict(BookingConflictException ex) {
-        return buildError(HttpStatus.CONFLICT, ex.getMessage());
+    public ResponseEntity<Map<String, String>> handleConflict(BookingConflictException ex) {
+        Map<String, String> error = new java.util.HashMap<>();
+        error.put("error", "BOOKING_CONFLICT");
+        error.put("message", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -38,9 +41,20 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(body);
     }
 
-    @ExceptionHandler({IllegalStateException.class, IllegalArgumentException.class})
-    public ResponseEntity<Map<String, Object>> handleBadRequest(RuntimeException ex) {
-        return buildError(HttpStatus.BAD_REQUEST, ex.getMessage());
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, String>> handleIllegalArg(IllegalArgumentException ex) {
+        Map<String, String> error = new java.util.HashMap<>();
+        error.put("error", "VALIDATION_ERROR");
+        error.put("message", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Map<String, String>> handleIllegalState(IllegalStateException ex) {
+        Map<String, String> error = new java.util.HashMap<>();
+        error.put("error", "ACTION_NOT_ALLOWED");
+        error.put("message", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
 
     @ExceptionHandler(Exception.class)
