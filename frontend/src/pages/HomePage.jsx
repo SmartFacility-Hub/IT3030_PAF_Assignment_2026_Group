@@ -1161,6 +1161,18 @@ export default function HomePage() {
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
     setAuthError('');
+    
+    // Form Validation logic
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(authForm.email)) {
+      return setAuthError('Invalid email address.');
+    }
+    if (!/^(?=.*[0-9])(?=.*[^a-zA-Z0-9\\s]).{8,}$/.test(authForm.password)) {
+      return setAuthError('Password must be at least 8 characters long, and include at least one number and one special character.');
+    }
+    if (authMode === 'register' && (!authForm.name || !authForm.name.trim())) {
+      return setAuthError('Name is required.');
+    }
+    
     setAuthLoading(true);
     try {
       let res;

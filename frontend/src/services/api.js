@@ -86,6 +86,10 @@ export const ticketApi = {
 // ── Admin API helpers ───────────────────────────────────────────────────────
 export const adminApi = {
   fetchUsers: () => api.get('/api/admin/users'),
+  createUser: (dto) => api.post('/api/admin/users', dto),
+  getUser: (userId) => api.get(`/api/admin/users/${userId}`),
+  updateUser: (userId, dto) => api.put(`/api/admin/users/${userId}`, dto),
+  deleteUser: (userId) => api.delete(`/api/admin/users/${userId}`),
   updateRoles: (userId, roles) => api.put(`/api/admin/users/${userId}/roles`, { roles }),
 };
 

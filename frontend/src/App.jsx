@@ -10,6 +10,7 @@ import TechnicianDashboard from "./pages/TechnicianDashboard";
 import OAuthCallback from "./pages/OAuthCallback";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
 import FacilitiesPage from "./pages/FacilitiesPage";
+import AdminUsersPage from "./pages/AdminUsersPage";
 
 function App() {
   return (
@@ -40,6 +41,7 @@ function App() {
             <Route index element={<AdminDashboard />} />
             <Route path="incidents" element={<AdminIncidentsPage />} />
             <Route path="facilities" element={<FacilitiesPage />} />
+            <Route path="users" element={<AdminUsersPage />} />
           </Route>
 
         </Routes>

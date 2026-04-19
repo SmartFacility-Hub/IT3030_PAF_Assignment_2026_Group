@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import api, { ticketApi } from "../services/api";
+import api, { ticketApi, adminApi } from "../services/api";
 import {
   STATUS_BG,
   STATUS_CLR,
@@ -491,6 +491,7 @@ function Donut({ segments }) {
   );
 }
 
+// ─── User Modals ──────────────────────────────────────────────────────────────
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -503,6 +504,8 @@ export default function AdminDashboard() {
    const [assigning, setAssigning] = useState(null);  // ticket to assign
   const [statusUpdating, setStatusUpdating] = useState(null); // ticket to update status
   const [selectedTicket, setSelectedTicket] = useState(null);
+  const [showCreateUser, setShowCreateUser] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
 
   const kpi = useCounter({ bookings: 1247, assets: 382, uptime: 99 });
   const openCount = tickets.filter(t => t.status === "OPEN" || t.status === "IN_PROGRESS").length;
@@ -521,18 +524,6 @@ export default function AdminDashboard() {
 
   const handleApprove = (id) => setApprovals(a => a.filter(x => x.id !== id));
   const handleReject  = (id) => setApprovals(a => a.filter(x => x.id !== id));
-
-  const fetchUsers = useCallback(async () => {
-    setUsersLoading(true);
-    try {
-      const res = await api.get('/api/admin/users');
-      setAllUsers(res.data);
-    } catch (err) {
-      console.error('Failed to fetch users:', err);
-    } finally {
-      setUsersLoading(false);
-    }
-  }, []);
 
   const fetchFacilities = useCallback(async () => {
     try {
@@ -556,19 +547,7 @@ export default function AdminDashboard() {
     }
   }, []);
 
-  useEffect(() => { fetchUsers(); fetchTickets(); fetchFacilities(); }, [fetchUsers, fetchTickets, fetchFacilities]);
-
-  const handleRoleChange = async (userId, newRoles) => {
-    try {
-      await api.put(`/api/admin/users/${userId}/roles`, { roles: newRoles });
-      fetchUsers();
-    } catch (err) {
-      console.error('Failed to update role:', err);
-    }
-  };
-
-  const getInitials = (name) =>
-    name ? name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase() : "?";
+  useEffect(() => { fetchTickets(); fetchFacilities(); }, [fetchTickets, fetchFacilities]);
 
   return (
     <>
@@ -894,76 +873,6 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Users & Roles */}
-      <div className="card fade-in" style={{ marginBottom: "20px" }}>
-        <div className="card-header">
-          <div>
-            <div className="card-title"><span className="card-title-icon">👥</span> Users & Roles</div>
-            <div className="card-subtitle">Manage platform users and their permissions</div>
-          </div>
-          <button className="card-action" onClick={fetchUsers}>Refresh →</button>
-        </div>
-        {usersLoading ? (
-          <div style={{ padding: "32px 22px", textAlign: "center", color: "var(--text-muted)", fontFamily: "var(--font-mono)", fontSize: "12px" }}>
-            Loading users...
-          </div>
-        ) : (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr><th>User</th><th>Email</th><th>Current Roles</th><th>Actions</th></tr>
-              </thead>
-              <tbody>
-                {allUsers.map(u => (
-                  <tr key={u.id}>
-                    <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                        <div style={{
-                          width: "30px", height: "30px", borderRadius: "50%",
-                          background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center",
-                          fontFamily: "var(--font-display)", fontSize: "10px", fontWeight: 700, color: "var(--accent-fg)",
-                          overflow: "hidden", flexShrink: 0,
-                        }}>
-                          {u.picture
-                            ? <img src={u.picture} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                            : getInitials(u.name)}
-                        </div>
-                        <span>{u.name}</span>
-                      </div>
-                    </td>
-                    <td style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>{u.email}</td>
-                    <td>
-                      <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
-                        {u.roles?.map(r => (
-                          <span key={r} className={`badge ${r === "ROLE_ADMIN" ? "open" : r === "ROLE_TECHNICIAN" ? "progress" : "active"}`}>
-                            {r.replace("ROLE_", "")}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ display: "flex", gap: "4px" }}>
-                        {!u.roles?.includes("ROLE_ADMIN") && (
-                          <button className="approve-btn" onClick={() => handleRoleChange(u.id, [...(u.roles || []), "ROLE_ADMIN"])}>+Admin</button>
-                        )}
-                        {!u.roles?.includes("ROLE_TECHNICIAN") && (
-                          <button className="approve-btn"
-                            style={{ background: "var(--status-amber-bg)", color: "var(--status-amber)", borderColor: "var(--status-amber-bg)" }}
-                            onClick={() => handleRoleChange(u.id, [...(u.roles || []), "ROLE_TECHNICIAN"])}>+Tech</button>
-                        )}
-                        {u.roles?.length > 1 && (
-                          <button className="reject-btn" onClick={() => handleRoleChange(u.id, ["ROLE_USER"])}>Reset</button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
       {/* Quick Actions */}
       <div className="card fade-in" style={{ marginBottom: "40px" }}>
         <div className="card-header">
@@ -973,7 +882,7 @@ export default function AdminDashboard() {
           {[
             { icon: "🏛️", label: "Add Facility",     desc: "Register a new room or lab",  action: () => navigate("/admin/facilities") },
             { icon: "🖥️", label: "Add Asset",         desc: "Add equipment to inventory",  action: () => {} },
-            { icon: "👥", label: "Manage Users",      desc: "Edit roles & permissions",    action: () => {} },
+            { icon: "👥", label: "Manage Users",      desc: "Edit roles & permissions",    action: () => navigate("/admin/users") },
             { icon: "📋", label: "View Audit Log",    desc: "Full action history",         action: () => {} },
             { icon: "📊", label: "Usage Analytics",   desc: "Bookings & peak hours",       action: () => {} },
             { icon: "📧", label: "Send Notification", desc: "Broadcast to all users",      action: () => {} },
