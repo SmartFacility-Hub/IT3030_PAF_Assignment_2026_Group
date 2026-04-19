@@ -11,6 +11,7 @@ import com.smartfacility.app.incidentservice.dto.request.AssignTechnicianDTO;
 import com.smartfacility.app.incidentservice.dto.request.StatusUpdateDTO;
 import com.smartfacility.app.incidentservice.dto.request.TicketRequestDTO;
 import com.smartfacility.app.incidentservice.dto.response.AttachmentResponseDTO;
+import com.smartfacility.app.incidentservice.util.AttachmentDownloadUrls;
 import com.smartfacility.app.incidentservice.dto.response.CommentResponseDTO;
 import com.smartfacility.app.incidentservice.dto.response.TicketResponseDTO;
 import com.smartfacility.app.incidentservice.enums.TicketStatus;
@@ -196,7 +197,7 @@ public class TicketService {
                         .originalFileName(a.getOriginalFileName())
                         .fileType(a.getFileType())
                         .uploadedAt(a.getUploadedAt())
-                        .downloadUrl("/api/tickets/" + ticket.getId() + "/attachments/" + a.getId())
+                        .downloadUrl(AttachmentDownloadUrls.build(a, ticket.getId()))
                         .build())
                 .collect(Collectors.toList());
 
