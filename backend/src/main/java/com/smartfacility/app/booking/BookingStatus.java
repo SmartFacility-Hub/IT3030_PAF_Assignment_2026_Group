@@ -1,4 +1,4 @@
-package com.smartfacility.app.enums;
+package com.smartfacility.app.booking;
 
 public enum BookingStatus {
     PENDING,
@@ -6,3 +6,4 @@ public enum BookingStatus {
     REJECTED,
     CANCELLED
 }
+

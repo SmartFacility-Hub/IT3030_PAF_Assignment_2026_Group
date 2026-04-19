@@ -1,23 +1,17 @@
 package com.smartfacility.app.controller;
 
+import com.smartfacility.app.model.ERole;
+import com.smartfacility.app.model.Role;
 import com.smartfacility.app.model.User;
+import com.smartfacility.app.repository.RoleRepository;
 import com.smartfacility.app.repository.UserRepository;
 import com.smartfacility.app.security.JwtUtils;
-import com.smartfacility.app.service.UserProvisioningService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
-import com.smartfacility.app.model.Role;
-import com.smartfacility.app.model.ERole;
-import com.smartfacility.app.repository.RoleRepository;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.HashSet;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -25,18 +19,15 @@ public class AuthController {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
-    private final UserProvisioningService userProvisioningService;
     private final JwtUtils jwtUtils;
     private final PasswordEncoder passwordEncoder;
 
     public AuthController(UserRepository userRepository,
-                          RoleRepository roleRepository,
-                          UserProvisioningService userProvisioningService,
-                          JwtUtils jwtUtils,
-                          PasswordEncoder passwordEncoder) {
+            RoleRepository roleRepository,
+            JwtUtils jwtUtils,
+            PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
-        this.userProvisioningService = userProvisioningService;
         this.jwtUtils = jwtUtils;
         this.passwordEncoder = passwordEncoder;
     }
@@ -52,7 +43,7 @@ public class AuthController {
         }
 
         String email = (String) authentication.getPrincipal();
-        Optional<User> userOpt = userRepository.findByEmailIgnoreCase(email);
+        Optional<User> userOpt = userRepository.findByEmail(email);
 
         if (userOpt.isEmpty()) {
             return ResponseEntity.status(404).body(Map.of("error", "User not found"));
@@ -207,14 +198,28 @@ public class AuthController {
             String picture = (String) payload.get("picture");
             String googleId = payload.getSubject();
 
-            User user = userProvisioningService.provisionFromGoogle(email, name, picture, googleId);
+            // Find or create user
+            User user = userRepository.findByGoogleId(googleId)
+                    .orElseGet(() -> {
+                        User newUser = new User(email, name, picture, googleId);
+                        Set<Role> roles = new HashSet<>();
+                        roleRepository.findByName(ERole.ROLE_USER).ifPresent(roles::add);
+                        newUser.setRoles(roles);
+                        return userRepository.save(newUser);
+                    });
+
+            // Update profile on each login
+            user.setName(name);
+            user.setPicture(picture);
+            user.setEmail(email);
+            userRepository.save(user);
 
             // Generate JWT
             List<String> roles = user.getRoles().stream()
                     .map(r -> r.getName().name())
                     .toList();
 
-            String token = jwtUtils.generateToken(user.getEmail(), user.getName(), user.getPicture(), user.getId(), roles);
+            String token = jwtUtils.generateToken(email, name, picture, user.getId(), roles);
 
             Map<String, Object> response = new LinkedHashMap<>();
             response.put("token", token);

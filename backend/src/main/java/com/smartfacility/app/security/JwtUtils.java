@@ -9,7 +9,6 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.util.Date;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 @Component
@@ -31,9 +30,8 @@ public class JwtUtils {
      * Generate a JWT token containing user info and roles.
      */
     public String generateToken(String email, String name, String picture, Long userId, List<String> roles) {
-        String subject = normalizeEmail(email);
         return Jwts.builder()
-                .subject(subject)
+                .subject(email)
                 .claims(Map.of(
                     "name", name,
                     "picture", picture != null ? picture : "",
@@ -50,20 +48,12 @@ public class JwtUtils {
      * Extract the email (subject) from a JWT.
      */
     public String getEmailFromToken(String token) {
-        String subject = Jwts.parser()
+        return Jwts.parser()
                 .verifyWith(key())
                 .build()
                 .parseSignedClaims(token)
                 .getPayload()
                 .getSubject();
-        return normalizeEmail(subject);
-    }
-
-    private static String normalizeEmail(String email) {
-        if (email == null) {
-            return "";
-        }
-        return email.trim().toLowerCase(Locale.ROOT);
     }
 
     /**

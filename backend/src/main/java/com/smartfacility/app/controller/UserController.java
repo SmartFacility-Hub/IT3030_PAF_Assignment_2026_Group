@@ -26,7 +26,7 @@ public class UserController {
     @GetMapping("/profile")
     public ResponseEntity<?> getProfile(Authentication authentication) {
         String email = (String) authentication.getPrincipal();
-        Optional<User> userOpt = userRepository.findByEmailIgnoreCase(email);
+        Optional<User> userOpt = userRepository.findByEmail(email);
 
         if (userOpt.isEmpty()) {
             return ResponseEntity.status(404).body(Map.of("error", "User not found"));
@@ -53,7 +53,7 @@ public class UserController {
     public ResponseEntity<?> updateProfile(@RequestBody Map<String, String> body,
                                             Authentication authentication) {
         String email = (String) authentication.getPrincipal();
-        Optional<User> userOpt = userRepository.findByEmailIgnoreCase(email);
+        Optional<User> userOpt = userRepository.findByEmail(email);
 
         if (userOpt.isEmpty()) {
             return ResponseEntity.status(404).body(Map.of("error", "User not found"));
