@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { getAllBookings } from "../services/bookingService";
 import NotificationBell from "./NotificationBell";
 import { ticketApi } from "../services/api";
 
@@ -239,7 +240,7 @@ const styles = `
 const breadcrumbs = {
   "/admin":             { title: "Dashboard",              sub: "Overview" },
   "/admin/facilities":  { title: "Facilities",             sub: "Catalogue" },
-  "/admin/bookings":    { title: "Bookings",               sub: "Management" },
+  "/bookings/admin":    { title: "Bookings",               sub: "Management" },
   "/admin/incidents":   { title: "Incidents",              sub: "Tickets" },
   "/admin/users":       { title: "Users & Roles",          sub: "Management" },
   "/admin/analytics":   { title: "Analytics",              sub: "Reports" },
@@ -250,7 +251,7 @@ const breadcrumbs = {
 const routeToNavId = {
   "/admin":             "dashboard",
   "/admin/facilities":  "facilities",
-  "/admin/bookings":    "bookings",
+  "/bookings/admin":    "bookings",
   "/admin/incidents":   "incidents",
   "/admin/technicians": "technicians",
   "/admin/users":       "users",
@@ -276,7 +277,7 @@ const navSections = [
   {
     label: "Operations",
     items: [
-      { icon: "📅", label: "Bookings",     id: "bookings",    route: "/admin/bookings",    badge: "4" },
+      { icon: "📅", label: "Bookings",     id: "bookings",    route: "/bookings/admin",    badge: "4" },
       { icon: "🔧", label: "Incidents",    id: "incidents",   route: "/admin/incidents",   badgeRed: true },
       { icon: "👷", label: "Technicians",  id: "technicians", route: "/admin/technicians" },
     ],
@@ -300,6 +301,15 @@ export default function AdminLayout() {
   const [theme, setTheme] = useState(
     window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light"
   );
+  
+  const [pendingBookings, setPendingBookings] = useState(0);
+
+  useEffect(() => {
+    getAllBookings().then(res => {
+      const data = Array.isArray(res.data) ? res.data : (res.data?.content || []);
+      setPendingBookings(data.filter(b => b.status === 'PENDING').length);
+    }).catch(err => console.error("Failed to load bookings", err));
+  }, [location.pathname]);
 
   useEffect(() => {
     let cancelled = false;
@@ -334,8 +344,13 @@ export default function AdminLayout() {
     applyTheme(next);
   };
 
-  const activeNavId = routeToNavId[location.pathname] || "dashboard";
-  const crumb = breadcrumbs[location.pathname] || { title: "Dashboard", sub: "Overview" };
+  const activeNavId = location.pathname.startsWith("/bookings") 
+    ? "bookings" 
+    : (routeToNavId[location.pathname] || "dashboard");
+    
+  const crumb = location.pathname.startsWith("/bookings") 
+    ? { title: "Bookings", sub: "Management" } 
+    : (breadcrumbs[location.pathname] || { title: "Dashboard", sub: "Overview" });
 
   const getInitials = (name) =>
     name ? name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase() : "?";
@@ -361,7 +376,13 @@ export default function AdminLayout() {
           {navSections.map(sec => (
             <div key={sec.label}>
               <div className="sidebar-section-label">{sec.label}</div>
-              {sec.items.map(item => (
+              {sec.items.map(item => {
+                let badge = item.badge;
+                if (item.id === 'bookings') badge = pendingBookings > 0 ? pendingBookings.toString() : null;
+                
+                if (item.id === "incidents" && incidentBadge != null) badge = incidentBadge;
+                
+                return (
                 <div
                   key={item.id}
                   className={`nav-item${activeNavId === item.id ? " active" : ""}`}
@@ -369,13 +390,13 @@ export default function AdminLayout() {
                 >
                   <span className="nav-item-icon">{item.icon}</span>
                   <span className="nav-item-label">{item.label}</span>
-                  {(item.id === "incidents" ? incidentBadge != null : item.badge) && (
+                  {badge && (
                     <span className={`nav-badge${item.badgeRed ? " red" : ""}`}>
-                      {item.id === "incidents" ? incidentBadge : item.badge}
+                      {badge}
                     </span>
                   )}
                 </div>
-              ))}
+              )})}
             </div>
           ))}
         </nav>

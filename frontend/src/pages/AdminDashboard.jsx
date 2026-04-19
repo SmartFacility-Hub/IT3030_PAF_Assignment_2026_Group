@@ -1,14 +1,11 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import api, { ticketApi, adminApi } from "../services/api";
-import {
-  STATUS_BG,
-  STATUS_CLR,
-  STATUS_DOT,
-  STATUS_LABEL,
-  PRIO_BG,
-  PRIO_CLR,
-} from "../components/admin/AdminTicketModals";
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import api, { ticketApi } from "../services/api";
+import BookingStatusBadge from "../components/BookingStatusBadge";
+import RejectModal from "../components/RejectModal";
+import { getAllBookings, approveBooking, rejectBooking } from "../services/bookingService";
+import BookingDetailModal from "../components/BookingDetailModal";
 
 // ─── Page-specific styles only (no sidebar/topbar/themes) ─────────────────────
 const styles = `
@@ -265,6 +262,76 @@ const styles = `
     .content-grid-3 { grid-template-columns: 1fr; }
     .main-content { padding: 20px 16px; }
   }
+
+  /* ── Admin Modals ── */
+  .adm-modal-overlay {
+    position: fixed; inset: 0; z-index: 300;
+    background: rgba(0,0,0,0.55); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center; padding: 24px;
+  }
+  .adm-modal {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 28px;
+    width: 100%; max-width: 460px; box-shadow: var(--shadow-card);
+  }
+  .adm-modal-title {
+    font-family: var(--font-display); font-size: 17px; font-weight: 700;
+    color: var(--text-primary); margin-bottom: 20px;
+  }
+  .adm-form-group { margin-bottom: 16px; }
+  .adm-label {
+    display: block; font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+    color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;
+  }
+  .adm-select, .adm-textarea {
+    width: 100%; padding: 10px 14px;
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); color: var(--text-primary);
+    font-family: var(--font-body); font-size: 13px; outline: none;
+    transition: border-color 0.2s;
+  }
+  .adm-select:focus, .adm-textarea:focus { border-color: var(--accent-border); }
+  .adm-textarea { resize: vertical; min-height: 72px; }
+  .adm-select option { background: var(--bg-surface); }
+  .adm-modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+  .adm-error {
+    padding: 10px 14px; background: var(--status-red-bg); border: 1px solid var(--status-red);
+    border-radius: var(--radius-sm); color: var(--status-red); font-size: 13px; margin-bottom: 14px;
+  }
+  .adm-row-actions { display: flex; gap: 6px; }
+  .adm-action-btn {
+    padding: 4px 10px; border-radius: var(--radius-sm);
+    font-family: var(--font-mono); font-size: 10px; cursor: pointer;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--text-muted); transition: all 0.15s;
+  }
+  .adm-action-btn:hover { border-color: var(--accent-border); color: var(--accent); }
+  .adm-action-btn.assign:hover { border-color: var(--status-blue, #60a5fa); color: var(--status-blue, #60a5fa); }
+
+  /* Panel Styles */
+  .adm-panel-overlay { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.4); backdrop-filter: blur(2px); }
+  .adm-panel {
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: 1001; width: 440px; max-width: 90vw;
+    background: var(--bg-surface); border-left: 1px solid var(--border); display: flex; flex-direction: column;
+    box-shadow: -10px 0 40px rgba(0,0,0,0.3); animation: admSlideIn 0.3s ease;
+  }
+  @keyframes admSlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+  .adm-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid var(--border); }
+  .adm-panel-title { font-family: var(--font-display); font-size: 16px; font-weight: 700; color: var(--text-primary); }
+  .adm-panel-close { background: none; border: none; font-size: 18px; color: var(--text-muted); cursor: pointer; }
+  .adm-panel-body { flex: 1; overflow-y: auto; padding: 24px; }
+  .adm-detail-field { margin-bottom: 18px; }
+  .adm-detail-label { font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; }
+  .adm-detail-value { font-size: 14px; color: var(--text-secondary); line-height: 1.5; }
+  .adm-divider { border: 0; border-top: 1px solid var(--border); margin: 24px 0; }
+  .adm-comment-item { padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .adm-comment-meta { display: flex; justify-content: space-between; margin-bottom: 6px; }
+  .adm-comment-author { font-size: 11px; font-weight: 700; color: var(--text-primary); }
+  .adm-comment-time { font-size: 10px; color: var(--text-muted); }
+  .adm-comment-text { font-size: 13px; color: var(--text-secondary); line-height: 1.4; white-space: pre-wrap; }
+  .adm-comment-actions { display: flex; gap: 12px; margin-top: 8px; }
+  .adm-add-comment { margin-top: 24px; }
+  .adm-textarea { width: 100%; border: 1px solid var(--border); border-radius: 4px; padding: 10px; background: var(--bg-elevated); color: var(--text-primary); font-size: 13px; }
 `;
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
@@ -304,8 +371,14 @@ const recentBookings = [
   { id: "BK-1038", resource: "Auditorium",      user: "Dr. K. Mendis",  date: "8 Apr",  time: "09:00–13:00", status: "rejected" },
 ];
 
-// ─── Allowed ticket status transitions ─────────────────────────────────────────
-const VALID_NEXT = { OPEN:["IN_PROGRESS","REJECTED"], IN_PROGRESS:["RESOLVED","REJECTED"], RESOLVED:["CLOSED"], CLOSED:[], REJECTED:[] };
+// ─── Status helpers ───────────────────────────────────────────────────────────
+const STATUS_DOT   = { OPEN:"var(--status-red)", IN_PROGRESS:"var(--status-amber)", RESOLVED:"var(--status-green)", CLOSED:"var(--text-muted)", REJECTED:"var(--status-red)" };
+const STATUS_BG    = { OPEN:"var(--status-red-bg)", IN_PROGRESS:"var(--status-amber-bg)", RESOLVED:"var(--status-green-bg)", CLOSED:"var(--bg-elevated)", REJECTED:"var(--status-red-bg)" };
+const STATUS_CLR   = { OPEN:"var(--status-red)", IN_PROGRESS:"var(--status-amber)", RESOLVED:"var(--status-green)", CLOSED:"var(--text-muted)", REJECTED:"var(--status-red)" };
+const STATUS_LABEL = { OPEN:"Open", IN_PROGRESS:"In Progress", RESOLVED:"Resolved", CLOSED:"Closed", REJECTED:"Rejected" };
+const PRIO_BG      = { HIGH:"var(--status-red-bg)", CRITICAL:"var(--status-red-bg)", MEDIUM:"var(--status-amber-bg)", LOW:"var(--bg-elevated)" };
+const PRIO_CLR     = { HIGH:"var(--status-red)", CRITICAL:"var(--status-red)", MEDIUM:"var(--status-amber)", LOW:"var(--text-muted)" };
+const VALID_NEXT   = { OPEN:["IN_PROGRESS","REJECTED"], IN_PROGRESS:["RESOLVED","REJECTED"], RESOLVED:["CLOSED"], CLOSED:[], REJECTED:[] };
 
 // ─── Assign Technician Modal ──────────────────────────────────────────────────
 function AssignModal({ ticket, technicians, onClose, onDone }) {
@@ -432,7 +505,12 @@ function StatusModal({ ticket, onClose, onDone }) {
   );
 }
 
-
+const resourceUtilisation = [
+  { name: "Lecture Halls", pct: 82, color: "#f5a623" },
+  { name: "Computer Labs",  pct: 67, color: "#60a5fa" },
+  { name: "Meeting Rooms",  pct: 45, color: "#a78bfa" },
+  { name: "Equipment",      pct: 38, color: "#34d399" },
+];
 
 const healthItems = [
   { name: "API Server",    val: "12 ms", status: "Healthy",  color: "#4ade80" },
@@ -491,46 +569,251 @@ function Donut({ segments }) {
   );
 }
 
-// ─── User Modals ──────────────────────────────────────────────────────────────
+// ─── Ticket Detail Panel ──────────────────────────────────────────────────────
+function TicketDetailPanel({ ticket, onClose, onRefresh }) {
+  const { user } = useAuth();
+  const [comments, setComments] = useState(ticket.comments || []);
+  const [newComment, setNewComment] = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [editingText, setEditingText] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleAddComment = async () => {
+    if (!newComment.trim()) return;
+    setSubmitting(true);
+    try {
+      const res = await ticketApi.addComment(ticket.id, newComment.trim());
+      setComments(c => [...c, res.data]);
+      setNewComment("");
+    } catch (_) {} finally { setSubmitting(false); }
+  };
+
+  const handleEditSave = async (commentId) => {
+    try {
+      const res = await ticketApi.editComment(ticket.id, commentId, editingText);
+      setComments(c => c.map(x => x.id === commentId ? res.data : x));
+      setEditingId(null);
+    } catch (_) {}
+  };
+
+  const handleDelete = async (commentId) => {
+    if (!window.confirm("Delete this comment?")) return;
+    try {
+      await ticketApi.deleteComment(ticket.id, commentId);
+      setComments(c => c.filter(x => x.id !== commentId));
+    } catch (_) {}
+  };
+
+  const fmt = d => d ? new Date(d).toLocaleString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '—';
+
+  return (
+    <>
+      <div className="adm-panel-overlay" onClick={onClose} />
+      <aside className="adm-panel">
+        <div className="adm-panel-header">
+          <div className="adm-panel-title">🎫 Incident Details — #{ticket.id}</div>
+          <button className="adm-panel-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="adm-panel-body">
+          <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+            <span className="badge" style={{ background: STATUS_BG[ticket.status], color: STATUS_CLR[ticket.status] }}>
+              {STATUS_LABEL[ticket.status]}
+            </span>
+            <span className="badge" style={{ background: PRIO_BG[ticket.priority], color: PRIO_CLR[ticket.priority] }}>
+              {ticket.priority}
+            </span>
+          </div>
+
+          <div className="adm-detail-field">
+            <div className="adm-detail-label">Location</div>
+            <div className="adm-detail-value"><strong>{ticket.resourceLocation}</strong></div>
+          </div>
+          <div className="adm-detail-field">
+            <div className="adm-detail-label">Description</div>
+            <div className="adm-detail-value">{ticket.description}</div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+             <div className="adm-detail-field" style={{ margin: 0 }}>
+               <div className="adm-detail-label">Contact</div>
+               <div className="adm-detail-value">{ticket.contactDetails}</div>
+             </div>
+             <div className="adm-detail-field" style={{ margin: 0 }}>
+               <div className="adm-detail-label">Assigned</div>
+               <div className="adm-detail-value">{ticket.assignedTo || "None"}</div>
+             </div>
+          </div>
+
+          <hr className="adm-divider" />
+          <div className="adm-detail-label" style={{ marginBottom: 12 }}>Comments ({comments.length})</div>
+
+          <div className="adm-comment-list">
+            {comments.map(c => (
+              <div key={c.id} className="adm-comment-item">
+                <div className="adm-comment-meta">
+                  <span className="adm-comment-author">{c.createdBy}</span>
+                  <span className="adm-comment-time">{fmt(c.createdAt)}</span>
+                </div>
+                {editingId === c.id ? (
+                  <>
+                    <textarea className="adm-textarea" style={{ minHeight: 60 }}
+                      value={editingText} onChange={e => setEditingText(e.target.value)} />
+                    <div className="adm-comment-actions">
+                      <button className="adm-action-btn" onClick={() => handleEditSave(c.id)}>Save</button>
+                      <button className="adm-action-btn" onClick={() => setEditingId(null)}>Cancel</button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="adm-comment-text">{c.content}</div>
+                    <div className="adm-comment-actions">
+                      {c.isOwner && (
+                        <button className="adm-action-btn"
+                          onClick={() => { setEditingId(c.id); setEditingText(c.content); }}>Edit</button>
+                      )}
+                      {(c.isOwner || user?.roles?.some(r => r === 'ROLE_ADMIN')) && (
+                        <button className="adm-action-btn" style={{ color: 'var(--status-red)' }}
+                          onClick={() => handleDelete(c.id)}>Delete</button>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="adm-add-comment">
+            <textarea className="adm-textarea" placeholder="Add a comment…"
+              value={newComment} onChange={e => setNewComment(e.target.value)} />
+            <button className="btn-primary" style={{ marginTop: 8, width: '100%' }}
+              onClick={handleAddComment} disabled={submitting || !newComment.trim()}>
+              {submitting ? "Posting…" : "Post Comment"}
+            </button>
+          </div>
+        </div>
+      </aside>
+    </>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const [approvals,    setApprovals]    = useState(pendingBookings);
-  const [allUsers,     setAllUsers]     = useState([]);
-  const [usersLoading, setUsersLoading] = useState(false);
+  
   const [tickets, setTickets] = useState([]);
   const [ticketsLoading, setTicketsLoading] = useState(false);
-  const [facilities, setFacilities] = useState([]);
-   const [assigning, setAssigning] = useState(null);  // ticket to assign
+  const [assigning, setAssigning] = useState(null);  // ticket to assign
   const [statusUpdating, setStatusUpdating] = useState(null); // ticket to update status
   const [selectedTicket, setSelectedTicket] = useState(null);
-  const [showCreateUser, setShowCreateUser] = useState(false);
-  const [editingUser, setEditingUser] = useState(null);
+  const [selectedBooking, setSelectedBooking] = useState(null);
+  
+  const [bookings, setBookings] = useState([]);
+  const [bookingsLoading, setBookingsLoading] = useState(false);
+  const [bookingsError, setBookingsError] = useState("");
+  const [bookingsSuccess, setBookingsSuccess] = useState("");
+  const location = useLocation();
+  const showAnalytics = location.pathname === "/admin/analytics";
+  
+  const [approvals,    setApprovals]    = useState([]);
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejectTarget, setRejectTarget] = useState(null);
+  const [rejectBusy, setRejectBusy] = useState(false);
+  const [allUsers,     setAllUsers]     = useState([]);
+  const [usersLoading, setUsersLoading] = useState(false);
 
-  const kpi = useCounter({ bookings: 1247, assets: 382, uptime: 99 });
   const openCount = tickets.filter(t => t.status === "OPEN" || t.status === "IN_PROGRESS").length;
 
-  const recentOpenIncidents = useMemo(() => {
-    const sorted = [...tickets].sort((a, b) => {
-      const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-      return tb - ta;
-    });
-    return sorted.slice(0, 8);
-  }, [tickets]);
+  const kpi = useCounter({
+  bookings: bookings.length,
+  assets: 382,
+  incidents: openCount,
+  uptime: 99
+});
 
-  const fmtShort = (d) =>
-    d ? new Date(d).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
-
-  const handleApprove = (id) => setApprovals(a => a.filter(x => x.id !== id));
-  const handleReject  = (id) => setApprovals(a => a.filter(x => x.id !== id));
-
-  const fetchFacilities = useCallback(async () => {
+  const fetchBookings = useCallback(async () => {
+    setBookingsLoading(true);
+    setBookingsError("");
     try {
-      const res = await api.get('/api/facilities');
-      setFacilities(res.data);
+      // BACKEND: GET /api/bookings — BookingController.getAllBookings()
+      // CONNECTS TO: BookingController.java → BookingServiceImpl.java
+      const res = await getAllBookings();
+      console.log("[AdminDashboard] all bookings response:", res?.data);
+      const data = Array.isArray(res?.data) ? res.data : [];
+      setBookings(data);
+      setApprovals(data.filter((b) => (b?.status || "").toString().toUpperCase() === "PENDING"));
     } catch (err) {
-      console.error('Failed to fetch facilities:', err);
+      setBookings([]);
+      setApprovals([]);
+      const msg = err?.response?.data?.message || err?.message || "Failed to load bookings.";
+      setBookingsError(msg);
+    } finally {
+      setBookingsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchBookings();
+  }, [fetchBookings]);
+
+  const handleApprove = useCallback(async (id) => {
+    if (id == null) return;
+    try {
+      // BACKEND: PUT /api/bookings/{id}/approve — BookingController.approveBooking()
+      // CONNECTS TO: BookingController.java → BookingServiceImpl.java
+      await approveBooking(id);
+      setBookingsSuccess("Booking approved.");
+      await fetchBookings();
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.message || "Failed to approve booking.";
+      setBookingsError(msg);
+    }
+  }, [fetchBookings]);
+
+  const openReject = useCallback((booking) => {
+    setRejectTarget(booking);
+    setRejectOpen(true);
+  }, []);
+
+  const closeReject = useCallback(() => {
+    if (rejectBusy) return;
+    setRejectOpen(false);
+    setRejectTarget(null);
+  }, [rejectBusy]);
+
+  const confirmReject = useCallback(async (reason) => {
+    const id = rejectTarget?.id;
+    if (id == null) return;
+    setRejectBusy(true);
+    try {
+      // BACKEND: PUT /api/bookings/{id}/reject — BookingController.rejectBooking()
+      // CONNECTS TO: BookingController.java → BookingServiceImpl.java
+      await rejectBooking(id, reason);
+      setBookingsSuccess("Booking rejected.");
+      closeReject();
+      await fetchBookings();
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.message || "Failed to reject booking.";
+      setBookingsError(msg);
+    } finally {
+      setRejectBusy(false);
+    }
+  }, [closeReject, fetchBookings, rejectTarget]);
+
+  useEffect(() => {
+    if (!bookingsSuccess) return;
+    const t = setTimeout(() => setBookingsSuccess(""), 2500);
+    return () => clearTimeout(t);
+  }, [bookingsSuccess]);
+
+  const fetchUsers = useCallback(async () => {
+    setUsersLoading(true);
+    try {
+      const res = await api.get('/api/admin/users');
+      setAllUsers(res.data);
+    } catch (err) {
+      console.error('Failed to fetch users:', err);
+    } finally {
+      setUsersLoading(false);
     }
   }, []);
 
@@ -547,49 +830,256 @@ export default function AdminDashboard() {
     }
   }, []);
 
-  useEffect(() => { fetchTickets(); fetchFacilities(); }, [fetchTickets, fetchFacilities]);
+  useEffect(() => { fetchUsers(); fetchTickets(); }, [fetchUsers, fetchTickets]);
+
+  const handleRoleChange = async (userId, newRoles) => {
+    try {
+      await api.put(`/api/admin/users/${userId}/roles`, { roles: newRoles });
+      fetchUsers();
+    } catch (err) {
+      console.error('Failed to update role:', err);
+    }
+  };
+
+  const getInitials = (name) =>
+    name ? name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase() : "?";
 
   return (
     <>
     <div style={{ padding: "32px", minHeight: "calc(100vh - 60px)" }}>
       <style dangerouslySetInnerHTML={{ __html: styles }} />
+      <RejectModal
+        open={rejectOpen}
+        title={rejectTarget ? `Reject booking #${rejectTarget.id}` : "Reject booking"}
+        onClose={closeReject}
+        onConfirm={confirmReject}
+        busy={rejectBusy}
+      />
+
+      {bookingsSuccess && (
+        <div style={{ marginBottom: 14, color: "var(--status-green)", fontFamily: "var(--font-mono)", fontSize: 12 }}>
+          {bookingsSuccess}
+        </div>
+      )}
 
       {/* Page Header */}
       <div className="page-header fade-in">
         <div className="page-header-left">
           <div className="page-label">Operations Overview</div>
-          <div className="page-title">Admin Dashboard</div>
-          <div className="page-subtitle">Smart Campus Operations Hub</div>
+          <div className="page-title">{showAnalytics ? "Usage Analytics" : "Admin Dashboard"}</div>
+          <div className="page-subtitle">{showAnalytics ? "Booking trends and resource utilization" : "Smart Campus Operations Hub"}</div>
         </div>
         <div className="page-header-right">
-          <button className="btn-ghost">⬇ Export Report</button>
-          <button className="btn-primary" onClick={() => navigate("/admin/facilities")}>
-            🏛️ Manage Resources
-          </button>
+          {showAnalytics ? (
+            <button className="btn-ghost" onClick={() => navigate("/admin")}>← Back to Dashboard</button>
+          ) : (
+            <>
+              <button className="btn-ghost">⬇ Export Report</button>
+              <button className="btn-primary" onClick={() => navigate("/admin/facilities")}>
+                🏛️ Manage Resources
+              </button>
+            </>
+          )}
         </div>
       </div>
-
-        {/* KPI Row */}
-        <div className="kpi-grid">
-          {[
-            { icon: "📅", label: "Total Bookings",    value: kpi.bookings.toLocaleString() + "+", change: "+12%",    up: true,    sub: "This semester" },
-            { icon: "🏛️", label: "Total Resources",  value: facilities.length || "—",                         change: "+8 today", up: true,    sub: "Active inventory" },
-            { icon: "🔧", label: "Open Incidents",    value: ticketsLoading ? "…" : openCount,    change: "Live",     up: null,    sub: "Active tickets" },
-            { icon: "⚡",  label: "Platform Uptime",  value: kpi.uptime + "%",                    change: "Stable",   up: null,    sub: "Last 30 days" },
-          ].map((k, i) => (
-            <div className={`kpi-card fade-in-${i + 1}`} key={k.label}>
-              <div className="kpi-card-top">
-                <div className="kpi-icon">{k.icon}</div>
-                <div className={`kpi-change ${k.up === null ? "neutral" : k.up ? "up" : "down"}`}>
-                  {k.up === null ? "—" : k.up ? "↑" : "↓"} {k.change}
+      
+      {showAnalytics ? (
+        <div className="fade-in-1">
+          <div className="content-grid">
+            <div className="card">
+              <div className="card-header">
+                <div>
+                  <div className="card-title"><span>📊</span> Booking Status Breakdown</div>
+                  <div className="card-subtitle">Distribution of all bookings</div>
                 </div>
               </div>
-              <div className="kpi-value">{k.value}</div>
-              <div className="kpi-label">{k.label}</div>
-              <div className="kpi-sub">{k.sub}</div>
+              <div className="card-body">
+                {(() => {
+                  const total = bookings.length;
+                  const pCount = bookings.filter(b => b.status === 'PENDING').length;
+                  const aCount = bookings.filter(b => b.status === 'APPROVED').length;
+                  const rCount = bookings.filter(b => b.status === 'REJECTED').length;
+                  const cCount = bookings.filter(b => b.status === 'CANCELLED').length;
+                  
+                  return (
+                    <div style={{background:'#FFF7ED', borderRadius:'12px', padding:'20px'}}>
+                      {[
+                        {label:'Approved', count:aCount, color:'#16A34A'},
+                        {label:'Pending', count:pCount, color:'#F97316'},
+                        {label:'Rejected', count:rCount, color:'#DC2626'},
+                        {label:'Cancelled', count:cCount, color:'#78716C'},
+                      ].map(item => (
+                        <div key={item.label} style={{marginBottom:'12px'}}>
+                          <div style={{display:'flex', justifyContent:'space-between', marginBottom:'4px'}}>
+                            <span style={{fontSize:'13px', color:'#1C1917'}}>{item.label}</span>
+                            <span style={{fontSize:'13px', fontWeight:'600', color:'#1C1917'}}>
+                              {item.count} ({total > 0 ? Math.round(item.count/total*100) : 0}%)
+                            </span>
+                          </div>
+                          <div style={{background:'#E7E5E4', borderRadius:'4px', height:'8px'}}>
+                            <div style={{
+                              width: total > 0 ? `${item.count/total*100}%` : '0%',
+                              background: item.color,
+                              height:'8px',
+                              borderRadius:'4px',
+                              transition:'width 0.5s ease'
+                            }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
-          ))}
+            
+            <div className="card">
+              <div className="card-header">
+                <div>
+                  <div className="card-title"><span>🔥</span> Top Booked Resources</div>
+                  <div className="card-subtitle">Most requested facilities</div>
+                </div>
+              </div>
+              <div className="card-body">
+                {(() => {
+                  const resourceCounts = bookings.reduce((acc, b) => {
+                    const name = b.resourceName || `Resource #${b.resourceId}`;
+                    acc[name] = (acc[name] || 0) + 1;
+                    return acc;
+                  }, {});
+                  const topResources = Object.entries(resourceCounts)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 5);
+                  
+                  return (
+                    <div style={{display:'flex', flexDirection:'column', gap:'12px'}}>
+                      {topResources.length === 0 ? <p style={{color:'#78716C', fontSize:'13px'}}>No bookings yet.</p> : null}
+                      {topResources.map(([name, count], idx) => (
+                        <div key={name} style={{display:'flex', alignItems:'center', gap:'12px'}}>
+                          <div style={{width:'24px', height:'24px', borderRadius:'50%', background:'#FFF7ED', color:'#F97316', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'12px', fontWeight:'700'}}>
+                            #{idx + 1}
+                          </div>
+                          <div style={{flex:1, fontSize:'13px', fontWeight:'500', color:'#1C1917'}}>{name}</div>
+                          <div style={{fontSize:'13px', color:'#78716C', borderBottom:'1px dashed #E7E5E4', flex:1, margin:'0 8px'}} />
+                          <div style={{fontSize:'13px', fontWeight:'600', color:'#1C1917'}}>{count} booking{count!==1?'s':''}</div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+          
+          <div className="content-grid">
+            <div className="card">
+              <div className="card-header">
+                <div>
+                  <div className="card-title"><span>📅</span> Bookings by Day of Week</div>
+                  <div className="card-subtitle">Peak days analysis</div>
+                </div>
+              </div>
+              <div className="card-body">
+                {(() => {
+                  const dayCount = {Mon:0, Tue:0, Wed:0, Thu:0, Fri:0, Sat:0, Sun:0};
+                  bookings.forEach(b => {
+                    if (b.bookingDate) {
+                      const date = new Date(b.bookingDate);
+                      if (!isNaN(date)) {
+                        const day = date.toLocaleDateString('en', {weekday:'short'});
+                        if (dayCount[day] !== undefined) dayCount[day]++;
+                      }
+                    }
+                  });
+                  const maxDayCount = Math.max(...Object.values(dayCount), 1);
+                  
+                  return (
+                    <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
+                      {Object.entries(dayCount).map(([day, count]) => (
+                        <div key={day} style={{display:'flex', alignItems:'center', gap:'12px'}}>
+                          <div style={{width:'30px', fontSize:'12px', color:'#78716C', fontWeight:'600'}}>{day}</div>
+                          <div style={{flex:1, height:'20px', background:'#F5F5F4', borderRadius:'4px', overflow:'hidden'}}>
+                            <div style={{
+                              height:'100%',
+                              width:`${count/maxDayCount*100}%`,
+                              background:'#F97316',
+                              transition:'width 0.5s ease',
+                              borderRight: '1px solid #EA580C'
+                            }} />
+                          </div>
+                          <div style={{width:'20px', fontSize:'13px', fontWeight:'600', textAlign:'right'}}>{count}</div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+            
+            <div className="card">
+              <div className="card-header">
+                <div>
+                  <div className="card-title"><span>📈</span> Recent Activity Summary</div>
+                  <div className="card-subtitle">Quick metrics</div>
+                </div>
+              </div>
+              <div className="card-body">
+                {(() => {
+                  const total = bookings.length;
+                  const avgAttendees = Math.round(bookings.reduce((s,b) => s + (Number(b.expectedAttendees)||0), 0) / (total || 1));
+                  
+                  const userCounts = bookings.reduce((acc, b) => {
+                    if (b.userName) acc[b.userName] = (acc[b.userName] || 0) + 1;
+                    return acc;
+                  }, {});
+                  const topUser = Object.entries(userCounts).sort((a,b) => b[1]-a[1])[0];
+                  
+                  return (
+                    <div style={{display:'flex', flexDirection:'column', gap:'16px'}}>
+                      <div style={{padding:'16px', background:'#F8FAFC', borderRadius:'8px', border:'1px solid #E2E8F0'}}>
+                        <div style={{fontSize:'12px', color:'#64748B', textTransform:'uppercase', letterSpacing:'0.05em'}}>Total Bookings</div>
+                        <div style={{fontSize:'24px', fontWeight:'700', color:'#0F172A', marginTop:'4px'}}>{total}</div>
+                      </div>
+                      <div style={{padding:'16px', background:'#F8FAFC', borderRadius:'8px', border:'1px solid #E2E8F0'}}>
+                        <div style={{fontSize:'12px', color:'#64748B', textTransform:'uppercase', letterSpacing:'0.05em'}}>Average Attendees</div>
+                        <div style={{fontSize:'24px', fontWeight:'700', color:'#0F172A', marginTop:'4px'}}>{avgAttendees} <span style={{fontSize:'14px', color:'#64748B', fontWeight:'400'}}>per booking</span></div>
+                      </div>
+                      <div style={{padding:'16px', background:'#F8FAFC', borderRadius:'8px', border:'1px solid #E2E8F0'}}>
+                        <div style={{fontSize:'12px', color:'#64748B', textTransform:'uppercase', letterSpacing:'0.05em'}}>Most Active User</div>
+                        <div style={{fontSize:'20px', fontWeight:'700', color:'#0F172A', marginTop:'4px'}}>
+                          {topUser ? `${topUser[0]} (${topUser[1]} bookings)` : 'N/A'}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
         </div>
+      ) : (
+        <>
+          {/* KPI Row */}
+      <div className="kpi-grid">
+        {[
+          { icon: "📅", label: "Total Bookings",   value: bookings.length,                    change: "Live",      up: null,  sub: "All booking requests" },
+          { icon: "🖥️", label: "Assets Tracked",  value: kpi.assets,                          change: "+8 today",  up: true,  sub: "Active inventory" },
+          { icon: "🔧", label: "Open Incidents",   value: kpi.incidents,                       change: "−3 today",  up: false, sub: "Awaiting resolution" },
+          { icon: "⚡",  label: "Platform Uptime", value: kpi.uptime + "%",                    change: "Stable",    up: null,  sub: "Last 30 days" },
+        ].map((k, i) => (
+          <div className={`kpi-card fade-in-${i + 1}`} key={k.label}>
+            <div className="kpi-card-top">
+              <div className="kpi-icon">{k.icon}</div>
+              <div className={`kpi-change ${k.up === null ? "neutral" : k.up ? "up" : "down"}`}>
+                {k.up === null ? "—" : k.up ? "↑" : "↓"} {k.change}
+              </div>
+            </div>
+            <div className="kpi-value">{k.value}</div>
+            <div className="kpi-label">{k.label}</div>
+            <div className="kpi-sub">{k.sub}</div>
+          </div>
+        ))}
+      </div>
 
       {/* Row 1: Bar Chart + Activity */}
       <div className="content-grid fade-in-2">
@@ -659,23 +1149,33 @@ export default function AdminDashboard() {
               <div className="card-title"><span className="card-title-icon">⏳</span> Pending Approvals</div>
               <div className="card-subtitle">{approvals.length} booking requests awaiting review</div>
             </div>
-            <button className="card-action">View all bookings →</button>
+            <button className="card-action" onClick={() => navigate("/bookings/admin")}>View all bookings →</button>
           </div>
-          {approvals.length === 0 ? (
+          {bookingsLoading ? (
+            <div style={{ padding: "32px 22px", textAlign: "center", color: "var(--text-muted)", fontFamily: "var(--font-mono)", fontSize: "12px" }}>
+              Loading pending bookings...
+            </div>
+          ) : bookingsError ? (
+            <div style={{ padding: "32px 22px", textAlign: "center", color: "var(--status-red)", fontFamily: "var(--font-mono)", fontSize: "12px" }}>
+              {bookingsError}
+            </div>
+          ) : approvals.length === 0 ? (
             <div style={{ padding: "32px 22px", textAlign: "center", color: "var(--text-muted)", fontFamily: "var(--font-mono)", fontSize: "12px" }}>
               ✅ All caught up! No pending approvals.
             </div>
           ) : (
-            approvals.map(b => (
-              <div className="approval-item" key={b.id}>
-                <div className="approval-icon">{b.icon}</div>
+            approvals.map((b) => (
+              <div className="approval-item" key={b.id} onDoubleClick={() => setSelectedBooking(b)} style={{ cursor: "pointer" }}>
+                <div className="approval-icon">📅</div>
                 <div className="approval-body">
-                  <div className="approval-name">{b.name}</div>
-                  <div className="approval-meta">{b.id} &nbsp;·&nbsp; {b.detail}</div>
+                  <div className="approval-name">{b.userName || "—"} — {b.resourceName || `Resource #${b.resourceId ?? "—"}`}</div>
+                  <div className="approval-meta">
+                    #{b.id} &nbsp;·&nbsp; {b.bookingDate || "—"} · {b.startTime || "—"}–{b.endTime || "—"} · {b.expectedAttendees ?? "—"} attendees
+                  </div>
                 </div>
                 <div className="approval-actions">
                   <button className="approve-btn" onClick={() => handleApprove(b.id)}>✓ Approve</button>
-                  <button className="reject-btn"  onClick={() => handleReject(b.id)}>✕ Reject</button>
+                  <button className="reject-btn"  onClick={() => openReject(b)}>✕ Reject</button>
                 </div>
               </div>
             ))
@@ -713,78 +1213,46 @@ export default function AdminDashboard() {
         <div className="card">
           <div className="card-header">
             <div>
-              <div className="card-title"><span className="card-title-icon">📐</span> Resource Breakdown</div>
-              <div className="card-subtitle">By type — live from database</div>
+              <div className="card-title"><span className="card-title-icon">📐</span> Resource Utilisation</div>
+              <div className="card-subtitle">This week</div>
             </div>
           </div>
-          {(() => {
-            // ── Compute counts per type from live facilities data ──
-            const typeConfig = [
-              { key: "LECTURE_HALL", label: "Lecture Halls", color: "#f5a623" },
-              { key: "LAB",          label: "Labs",          color: "#60a5fa" },
-              { key: "MEETING_ROOM", label: "Meeting Rooms", color: "#a78bfa" },
-              { key: "EQUIPMENT",    label: "Equipment",     color: "#34d399" },
-            ];
-
-            const counts = typeConfig.map(t => ({
-              ...t,
-              count: facilities.filter(f => f.type === t.key).length,
-            }));
-
-            const total = counts.reduce((sum, t) => sum + t.count, 0) || 1;
-
-            const donutSegments = counts
-              .filter(t => t.count > 0)
-              .map(t => ({ value: t.count, color: t.color }));
-
-            return (
-              <>
-                <div className="donut-wrap">
-                  {total === 1 && facilities.length === 0 ? (
-                    <div style={{ padding: "20px", textAlign: "center", color: "var(--text-muted)", fontFamily: "var(--font-mono)", fontSize: 12 }}>
-                      No resources yet
-                    </div>
-                  ) : (
-                    <Donut segments={donutSegments.length > 0 ? donutSegments : [{ value: 1, color: "var(--bg-elevated)" }]} />
-                  )}
+          <div className="donut-wrap">
+            <Donut segments={[
+              { value: 34, color: "#f5a623" },
+              { value: 28, color: "#60a5fa" },
+              { value: 18, color: "#a78bfa" },
+              { value: 12, color: "#34d399" },
+            ]} />
+          </div>
+          <div className="donut-legend">
+            {resourceUtilisation.map(r => (
+              <div className="donut-legend-row" key={r.name}>
+                <div className="legend-dot" style={{ width: 8, height: 8, borderRadius: "50%", background: r.color, flexShrink: 0 }} />
+                <span style={{ fontSize: 12, color: "var(--text-secondary)", flex: 1 }}>{r.name}</span>
+                <div className="donut-legend-bar-wrap">
+                  <div className="donut-legend-bar" style={{ width: `${r.pct}%`, background: r.color }} />
                 </div>
-                <div className="donut-legend">
-                  {counts.map(r => (
-                    <div className="donut-legend-row" key={r.key}>
-                      <div className="legend-dot" style={{ width: 8, height: 8, borderRadius: "50%", background: r.color, flexShrink: 0 }} />
-                      <span style={{ fontSize: 12, color: "var(--text-secondary)", flex: 1 }}>{r.label}</span>
-                      <div className="donut-legend-bar-wrap">
-                        <div className="donut-legend-bar" style={{
-                          width: `${Math.round((r.count / (facilities.length || 1)) * 100)}%`,
-                          background: r.color
-                        }} />
-                      </div>
-                      <div className="donut-legend-val">{r.count}</div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            );
-          })()}
+                <div className="donut-legend-val">{r.pct}%</div>
+              </div>
+            ))}
+          </div>
         </div>
 
-          {/* Open Incidents — recently added (compact; full management on Incidents page) */}
+          {/* Open Incidents Table — live from API */}
           <div className="card" style={{ gridColumn: "span 2" }}>
             <div className="card-header">
               <div>
                 <div className="card-title"><span className="card-title-icon">🔧</span> Open Incidents</div>
-                <div className="card-subtitle">Recently reported tickets (newest first)</div>
+                <div className="card-subtitle">Active maintenance tickets</div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <button type="button" className="card-action" onClick={() => navigate("/admin/incidents")}>Manage all →</button>
-                <button type="button" className="card-action" onClick={fetchTickets}>Refresh →</button>
-              </div>
+              <button className="card-action" onClick={fetchTickets}>Refresh →</button>
             </div>
             <div className="table-wrap">
               {ticketsLoading ? (
                 <div style={{ padding:"24px", textAlign:"center", color:"var(--text-muted)", fontFamily:"var(--font-mono)", fontSize:12 }}>Loading…</div>
-              ) : recentOpenIncidents.length === 0 ? (
-                <div style={{ padding:"24px", textAlign:"center", color:"var(--text-muted)", fontFamily:"var(--font-mono)", fontSize:12 }}>No tickets yet.</div>
+              ) : tickets.length === 0 ? (
+                <div style={{ padding:"24px", textAlign:"center", color:"var(--text-muted)", fontFamily:"var(--font-mono)", fontSize:12 }}>✅ No open tickets.</div>
               ) : (
                 <table>
                   <thead>
@@ -793,12 +1261,15 @@ export default function AdminDashboard() {
                       <th>Location</th>
                       <th>Priority</th>
                       <th>Status</th>
-                      <th>Reported</th>
+                      <th>Assigned To</th>
+                      <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {recentOpenIncidents.map(t => (
-                      <tr key={t.id}>
+                    {tickets.map(t => (
+                      <tr key={t.id} onClick={(e) => {
+                        if (e.target.tagName !== 'BUTTON') setSelectedTicket(t);
+                      }} style={{ cursor: 'pointer' }}>
                         <td style={{ fontFamily:"var(--font-mono)", fontSize:12 }}>#{t.id}</td>
                         <td>{t.resourceLocation}</td>
                         <td>
@@ -812,7 +1283,18 @@ export default function AdminDashboard() {
                             {STATUS_LABEL[t.status]}
                           </span>
                         </td>
-                        <td style={{ fontFamily:"var(--font-mono)", fontSize:11, color:"var(--text-muted)" }}>{fmtShort(t.createdAt)}</td>
+                        <td style={{ fontSize:12, color: t.assignedTo ? "var(--text-secondary)" : "var(--status-red)" }}>
+                          {t.assignedTo || "Unassigned"}
+                        </td>
+                        <td>
+                          <div className="adm-row-actions">
+                            <button className="adm-action-btn assign"
+                              onClick={(e) => { e.stopPropagation(); setAssigning(t); }}>Assign</button>
+                            <button className="adm-action-btn"
+                              onClick={(e) => { e.stopPropagation(); setStatusUpdating(t); }}
+                              disabled={t.status === "CLOSED" || t.status === "REJECTED"}>Status</button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -828,11 +1310,11 @@ export default function AdminDashboard() {
         <div className="card-header">
           <div>
             <div className="card-title"><span className="card-title-icon">📅</span> Recent Bookings</div>
-            <div className="card-subtitle">Last 6 booking requests across all resources</div>
+            <div className="card-subtitle">Last 5 booking requests across all resources</div>
           </div>
           <div style={{ display: "flex", gap: "8px" }}>
             <button className="btn-ghost">Filter</button>
-            <button className="card-action" style={{ marginTop: 0 }}>View all →</button>
+            <button className="card-action" style={{ marginTop: 0 }} onClick={() => navigate("/bookings/admin")}>View all →</button>
           </div>
         </div>
         <div className="table-wrap">
@@ -841,36 +1323,105 @@ export default function AdminDashboard() {
               <tr><th>Booking ID</th><th>Resource</th><th>Requested By</th><th>Date</th><th>Time Slot</th><th>Status</th><th>Actions</th></tr>
             </thead>
             <tbody>
-              {recentBookings.map(b => (
-                <tr key={b.id}>
+              {(bookings || []).slice(0, 5).map((b) => {
+                const status = (b?.status || "").toString().toUpperCase();
+                return (
+                <tr key={b.id} onDoubleClick={() => setSelectedBooking(b)} style={{ cursor: "pointer" }}>
                   <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{b.id}</td>
-                  <td>{b.resource}</td>
-                  <td style={{ color: "var(--text-secondary)" }}>{b.user}</td>
-                  <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{b.date}</td>
-                  <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{b.time}</td>
+                  <td>{b.resourceName || `Resource #${b.resourceId ?? "—"}`}</td>
+                  <td style={{ color: "var(--text-secondary)" }}>{b.userName || "—"}</td>
+                  <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{b.bookingDate || "—"}</td>
+                  <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{(b.startTime || "—") + "–" + (b.endTime || "—")}</td>
                   <td>
-                    <span className={`badge ${b.status}`}>
-                      <span className="badge-dot" style={{
-                        background: b.status === "approved" ? "var(--status-green)" : b.status === "pending" ? "var(--status-amber)" : "var(--status-red)"
-                      }} />
-                      {b.status.charAt(0).toUpperCase() + b.status.slice(1)}
-                    </span>
+                    <BookingStatusBadge status={b.status} />
                   </td>
                   <td>
                     <div style={{ display: "flex", gap: "6px" }}>
-                      {b.status === "pending" && (
-                        <><button className="approve-btn">✓</button><button className="reject-btn">✕</button></>
+                      {status === "PENDING" && (
+                        <>
+                          <button className="approve-btn" onClick={() => handleApprove(b.id)}>✓</button>
+                          <button className="reject-btn" onClick={() => openReject(b)}>✕</button>
+                        </>
                       )}
-                      {b.status !== "pending" && (
-                        <button className="card-action" style={{ fontSize: 11 }}>View →</button>
-                      )}
+                      <button className="card-action" style={{ fontSize: 11 }} onClick={() => setSelectedBooking(b)}>View →</button>
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Users & Roles */}
+      <div className="card fade-in" style={{ marginBottom: "20px" }}>
+        <div className="card-header">
+          <div>
+            <div className="card-title"><span className="card-title-icon">👥</span> Users & Roles</div>
+            <div className="card-subtitle">Manage platform users and their permissions</div>
+          </div>
+          <button className="card-action" onClick={fetchUsers}>Refresh →</button>
+        </div>
+        {usersLoading ? (
+          <div style={{ padding: "32px 22px", textAlign: "center", color: "var(--text-muted)", fontFamily: "var(--font-mono)", fontSize: "12px" }}>
+            Loading users...
+          </div>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr><th>User</th><th>Email</th><th>Current Roles</th><th>Actions</th></tr>
+              </thead>
+              <tbody>
+                {allUsers.map(u => (
+                  <tr key={u.id}>
+                    <td>
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <div style={{
+                          width: "30px", height: "30px", borderRadius: "50%",
+                          background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center",
+                          fontFamily: "var(--font-display)", fontSize: "10px", fontWeight: 700, color: "var(--accent-fg)",
+                          overflow: "hidden", flexShrink: 0,
+                        }}>
+                          {u.picture
+                            ? <img src={u.picture} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                            : getInitials(u.name)}
+                        </div>
+                        <span>{u.name}</span>
+                      </div>
+                    </td>
+                    <td style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>{u.email}</td>
+                    <td>
+                      <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
+                        {u.roles?.map(r => (
+                          <span key={r} className={`badge ${r === "ROLE_ADMIN" ? "open" : r === "ROLE_TECHNICIAN" ? "progress" : "active"}`}>
+                            {r.replace("ROLE_", "")}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", gap: "4px" }}>
+                        {!u.roles?.includes("ROLE_ADMIN") && (
+                          <button className="approve-btn" onClick={() => handleRoleChange(u.id, [...(u.roles || []), "ROLE_ADMIN"])}>+Admin</button>
+                        )}
+                        {!u.roles?.includes("ROLE_TECHNICIAN") && (
+                          <button className="approve-btn"
+                            style={{ background: "var(--status-amber-bg)", color: "var(--status-amber)", borderColor: "var(--status-amber-bg)" }}
+                            onClick={() => handleRoleChange(u.id, [...(u.roles || []), "ROLE_TECHNICIAN"])}>+Tech</button>
+                        )}
+                        {u.roles?.length > 1 && (
+                          <button className="reject-btn" onClick={() => handleRoleChange(u.id, ["ROLE_USER"])}>Reset</button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Quick Actions */}
@@ -882,21 +1433,70 @@ export default function AdminDashboard() {
           {[
             { icon: "🏛️", label: "Add Facility",     desc: "Register a new room or lab",  action: () => navigate("/admin/facilities") },
             { icon: "🖥️", label: "Add Asset",         desc: "Add equipment to inventory",  action: () => {} },
-            { icon: "👥", label: "Manage Users",      desc: "Edit roles & permissions",    action: () => navigate("/admin/users") },
+            { icon: "👥", label: "Manage Users",      desc: "Edit roles & permissions",    action: () => {} },
             { icon: "📋", label: "View Audit Log",    desc: "Full action history",         action: () => {} },
-            { icon: "📊", label: "Usage Analytics",   desc: "Bookings & peak hours",       action: () => {} },
+            { icon: "📊", label: "Usage Analytics",   desc: "Bookings & peak hours",       action: () => navigate("/admin/analytics"), highlight: true },
             { icon: "📧", label: "Send Notification", desc: "Broadcast to all users",      action: () => {} },
           ].map(a => (
-            <button className="quick-action-btn" key={a.label} onClick={a.action}>
+            <button 
+              className="quick-action-btn" 
+              key={a.label} 
+              onClick={a.action}
+              style={a.highlight ? { background: '#FFF7ED', borderColor: '#F97316' } : {}}
+            >
               <span className="quick-action-icon">{a.icon}</span>
-              <span className="quick-action-label">{a.label}</span>
+              <span className="quick-action-label" style={a.highlight ? { color: '#F97316' } : {}}>{a.label}</span>
               <span className="quick-action-desc">{a.desc}</span>
             </button>
           ))}
         </div>
       </div>
+        </>
+      )}
 
       </div>
+
+      {/* Assign Technician Modal */}
+      {assigning && (
+        <AssignModal
+          ticket={assigning}
+          technicians={allUsers.filter(u => {
+            const hasTechRole = u.roles?.some(r =>
+              typeof r === 'string' && r.toUpperCase().includes('TECHNICIAN')
+            );
+            return hasTechRole;
+          })}
+          onClose={() => setAssigning(null)}
+          onDone={() => { setAssigning(null); fetchTickets(); }}
+        />
+      )}
+
+      {/* Update Status Modal */}
+      {statusUpdating && (
+        <StatusModal
+          ticket={statusUpdating}
+          onClose={() => setStatusUpdating(null)}
+          onDone={() => { setStatusUpdating(null); fetchTickets(); }}
+        />
+      )}
+
+      {/* Ticket Detail Panel */}
+      {selectedTicket && (
+        <TicketDetailPanel
+          ticket={selectedTicket}
+          onClose={() => setSelectedTicket(null)}
+          onRefresh={fetchTickets}
+        />
+      )}
+
+      {/* Booking Detail Modal */}
+      {selectedBooking && (
+        <BookingDetailModal
+          booking={selectedBooking}
+          onClose={() => setSelectedBooking(null)}
+          onRefresh={fetchBookings}
+        />
+      )}
     </>
   );
 }

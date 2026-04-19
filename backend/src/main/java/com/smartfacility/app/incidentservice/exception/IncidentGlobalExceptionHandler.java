@@ -13,8 +13,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
 
-@RestControllerAdvice
-public class GlobalExceptionHandler {
+@RestControllerAdvice(basePackages = "com.smartfacility.app.incidentservice")
+public class IncidentGlobalExceptionHandler {
 
     // 404 - not found
     @ExceptionHandler(ResourceNotFoundException.class)
