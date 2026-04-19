@@ -293,24 +293,8 @@ export function StatusModal({ ticket, onClose, onDone }) {
 export function TicketDetailPanel({ ticket, onClose, onRefresh }) {
   const { user } = useAuth();
   const [comments, setComments] = useState(ticket.comments || []);
-  const [newComment, setNewComment] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [editingText, setEditingText] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
-  const handleAddComment = async () => {
-    if (!newComment.trim()) return;
-    setSubmitting(true);
-    try {
-      const res = await ticketApi.addComment(ticket.id, newComment.trim());
-      setComments((c) => [...c, res.data]);
-      setNewComment("");
-      onRefresh?.();
-    } catch (_) {
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   const handleEditSave = async (commentId) => {
     try {
@@ -424,9 +408,12 @@ export function TicketDetailPanel({ ticket, onClose, onRefresh }) {
           )}
 
           <hr className="adm-divider" />
-          <div className="adm-detail-label" style={{ marginBottom: 12 }}>
+          <div className="adm-detail-label" style={{ marginBottom: 8 }}>
             Comments ({comments.length})
           </div>
+          <p className="adm-detail-value" style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 12 }}>
+            Comments are read-only here; posting is for users and technicians.
+          </p>
 
           <div className="adm-comment-list">
             {comments.map((c) => (
@@ -466,13 +453,6 @@ export function TicketDetailPanel({ ticket, onClose, onRefresh }) {
                 )}
               </div>
             ))}
-          </div>
-
-          <div className="adm-add-comment">
-            <textarea className="adm-textarea" placeholder="Add a comment…" value={newComment} onChange={(e) => setNewComment(e.target.value)} />
-            <button type="button" className="btn-primary" style={{ marginTop: 8, width: "100%" }} onClick={handleAddComment} disabled={submitting || !newComment.trim()}>
-              {submitting ? "Posting…" : "Post Comment"}
-            </button>
           </div>
         </div>
       </aside>
