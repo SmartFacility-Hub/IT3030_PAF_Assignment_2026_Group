@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { ticketApi, API_BASE_URL } from "../services/api";
+import { ticketApi, resolveAttachmentImageSrc } from "../services/api";
 
 // ─── Theme Definitions ────────────────────────────────────────────────────────
 const themes = {
@@ -483,9 +483,9 @@ function TicketDetailPanel({ ticket, onClose }) {
               <div className="td-attachments">
                 {ticket.attachments.map(a => (
                   <img key={a.id} className="td-attach-img"
-                    src={`${API_BASE_URL}/api/tickets/${ticket.id}/attachments/${a.id}/download`}
+                    src={resolveAttachmentImageSrc(a, ticket.id)}
                     alt={a.originalFileName} title={a.originalFileName}
-                    onClick={() => window.open(`${API_BASE_URL}/api/tickets/${ticket.id}/attachments/${a.id}/download`, "_blank")}
+                    onClick={() => window.open(resolveAttachmentImageSrc(a, ticket.id), "_blank")}
                     onError={e => { e.target.style.display = "none"; }} />
                 ))}
               </div>
