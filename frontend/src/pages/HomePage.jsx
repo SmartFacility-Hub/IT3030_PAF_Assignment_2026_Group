@@ -1161,6 +1161,18 @@ export default function HomePage() {
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
     setAuthError('');
+    
+    // Form Validation logic
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(authForm.email)) {
+      return setAuthError('Invalid email address.');
+    }
+    if (authForm.password.length < 6) {
+      return setAuthError('Password must be at least 6 characters.');
+    }
+    if (authMode === 'register' && (!authForm.name || !authForm.name.trim())) {
+      return setAuthError('Name is required.');
+    }
+    
     setAuthLoading(true);
     try {
       let res;
