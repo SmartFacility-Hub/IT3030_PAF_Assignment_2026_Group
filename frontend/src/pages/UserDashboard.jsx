@@ -1,5 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { bookingApi, ticketApi } from "../services/api";
+import facilityService from "../services/facilityService";
 
 const styles = `
   .welcome-banner {
@@ -80,13 +83,20 @@ const styles = `
 
   .badge { display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-mono); font-size: 10px; font-weight: 500; padding: 3px 10px; border-radius: 100px; white-space: nowrap; }
   .badge-dot { width: 5px; height: 5px; border-radius: 50%; }
-  .badge.pending  { background: var(--status-amber-bg); color: var(--status-amber); }
-  .badge.approved { background: var(--status-green-bg); color: var(--status-green); }
-  .badge.rejected { background: var(--status-red-bg);   color: var(--status-red); }
-  .badge.cancelled{ background: var(--bg-elevated);     color: var(--text-muted); }
-  .badge.open     { background: var(--status-red-bg);   color: var(--status-red); }
-  .badge.progress { background: var(--status-amber-bg); color: var(--status-amber); }
-  .badge.resolved { background: var(--status-green-bg); color: var(--status-green); }
+  .badge.PENDING   { background: var(--status-amber-bg); color: var(--status-amber); }
+  .badge.pending   { background: var(--status-amber-bg); color: var(--status-amber); }
+  .badge.APPROVED  { background: var(--status-green-bg); color: var(--status-green); }
+  .badge.approved  { background: var(--status-green-bg); color: var(--status-green); }
+  .badge.REJECTED  { background: var(--status-red-bg);   color: var(--status-red); }
+  .badge.rejected  { background: var(--status-red-bg);   color: var(--status-red); }
+  .badge.CANCELLED { background: var(--bg-elevated);     color: var(--text-muted); }
+  .badge.cancelled { background: var(--bg-elevated);     color: var(--text-muted); }
+  .badge.open      { background: var(--status-red-bg);   color: var(--status-red); }
+  .badge.OPEN      { background: var(--status-red-bg);   color: var(--status-red); }
+  .badge.progress  { background: var(--status-amber-bg); color: var(--status-amber); }
+  .badge.IN_PROGRESS { background: var(--status-amber-bg); color: var(--status-amber); }
+  .badge.resolved  { background: var(--status-green-bg); color: var(--status-green); }
+  .badge.RESOLVED  { background: var(--status-green-bg); color: var(--status-green); }
 
   .table-wrap { overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -100,7 +110,6 @@ const styles = `
   td:first-child { padding-left: 22px; color: var(--text-primary); font-weight: 500; }
   td:last-child  { padding-right: 22px; }
 
-  /* Calendar strip */
   .calendar-strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; padding: 0 22px 22px; }
   .cal-day { display: flex; flex-direction: column; align-items: center; padding: 10px 4px; border-radius: var(--radius-md); background: var(--bg-elevated); border: 1px solid var(--border); cursor: pointer; transition: all 0.2s; gap: 4px; }
   .cal-day:hover { border-color: rgba(45,212,191,0.4); background: var(--status-teal-bg); }
@@ -110,21 +119,19 @@ const styles = `
   .cal-day-num  { font-family: var(--font-display); font-size: 18px; font-weight: 800; color: var(--text-primary); line-height: 1; }
   .cal-day-dot  { width: 5px; height: 5px; border-radius: 50%; background: var(--status-teal); }
 
-  /* Booking list */
   .booking-list { display: flex; flex-direction: column; }
   .booking-item { display: flex; align-items: center; gap: 14px; padding: 13px 22px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.15s; }
   .booking-item:last-child { border-bottom: none; }
   .booking-item:hover { background: var(--bg-elevated); }
   .booking-time-col { display: flex; flex-direction: column; align-items: center; min-width: 52px; gap: 1px; }
   .booking-time { font-family: var(--font-mono); font-size: 11px; font-weight: 500; color: var(--text-primary); }
-  .booking-date { font-family: var(--font-mono); font-size: 9px;  color: var(--text-muted); }
+  .booking-date { font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); }
   .booking-bar  { width: 3px; align-self: stretch; border-radius: 4px; flex-shrink: 0; }
   .booking-body { flex: 1; min-width: 0; }
-  .booking-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+  .booking-title { font-size: 13px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .booking-meta  { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
   .booking-status-col { flex-shrink: 0; }
 
-  /* Room grid */
   .room-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 0 22px 22px; }
   .room-card { padding: 14px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s; }
   .room-card:hover { border-color: rgba(45,212,191,0.5); transform: translateY(-1px); }
@@ -137,7 +144,6 @@ const styles = `
   .room-avail.free { background: var(--status-green-bg); color: var(--status-green); }
   .room-avail.busy { background: var(--status-red-bg);   color: var(--status-red); }
 
-  /* Notifications */
   .notif-list { display: flex; flex-direction: column; }
   .notif-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px 22px; border-bottom: 1px solid var(--border); transition: background 0.15s; cursor: pointer; }
   .notif-item:last-child { border-bottom: none; }
@@ -150,20 +156,7 @@ const styles = `
   .notif-time { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin-top: 3px; }
   .unread-pip { width: 7px; height: 7px; border-radius: 50%; background: var(--status-teal); flex-shrink: 0; margin-top: 6px; }
 
-  /* Report form */
-  .report-form { display: flex; flex-direction: column; gap: 12px; padding: 0 22px 22px; }
-  .form-field  { display: flex; flex-direction: column; gap: 5px; }
-  .form-label  { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; }
-  .form-input, .form-select, .form-textarea {
-    background: var(--bg-elevated); border: 1px solid var(--border);
-    border-radius: var(--radius-sm); padding: 9px 12px;
-    font-family: var(--font-body); font-size: 13px; color: var(--text-primary);
-    transition: border-color 0.2s; width: 100%; outline: none;
-  }
-  .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: rgba(45,212,191,0.5); }
-  .form-textarea { resize: vertical; min-height: 80px; }
-  .form-select option { background: var(--bg-surface); }
-  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .empty-state { padding: 24px; text-align: center; font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
 
   @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
   .fade-in   { animation: fadeInUp 0.5s ease both; }
@@ -176,105 +169,167 @@ const styles = `
   @media (max-width: 768px)  { .kpi-grid { grid-template-columns: 1fr 1fr; } .content-grid-equal, .form-row { grid-template-columns: 1fr; } .calendar-strip { grid-template-columns: repeat(4,1fr); } .room-grid { grid-template-columns: 1fr; } }
 `;
 
-// ── Mock data ─────────────────────────────────────────────────────────────────
-const calDays = [
-  { name: "Mon", num: 7,  hasBooking: false, today: false },
-  { name: "Tue", num: 8,  hasBooking: true,  today: false },
-  { name: "Wed", num: 9,  hasBooking: false, today: false },
-  { name: "Thu", num: 10, hasBooking: true,  today: false },
-  { name: "Fri", num: 11, hasBooking: false, today: false },
-  { name: "Sat", num: 12, hasBooking: false, today: false },
-  { name: "Sun", num: 13, hasBooking: false, today: true  },
-];
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const fmtTime = iso => iso
+  ? new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
+  : "—";
 
-const upcomingBookings = [
-  { time: "09:00", date: "Tue 8 Apr",  title: "Computer Lab 2 — Group Study",     meta: "Capacity 40 · Block C",      status: "approved", color: "#4ade80" },
-  { time: "14:00", date: "Thu 10 Apr", title: "Study Room 4 — Project Meeting",   meta: "Capacity 8 · Library Block", status: "pending",  color: "#fbbf24" },
-  { time: "10:00", date: "Mon 14 Apr", title: "Seminar Room A — Presentation",    meta: "Capacity 25 · Block A",      status: "approved", color: "#4ade80" },
-  { time: "15:00", date: "Wed 16 Apr", title: "Computer Lab 1 — Assignment Work", meta: "Capacity 40 · Block C",      status: "pending",  color: "#fbbf24" },
-];
+const fmtDate = iso => iso
+  ? new Date(iso).toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short" })
+  : "—";
 
-const availableRooms = [
-  { icon: "💻", name: "Computer Lab 1",  cap: "40 seats", avail: true  },
-  { icon: "📚", name: "Study Room 3",    cap: "8 seats",  avail: true  },
-  { icon: "🔬", name: "Bio Lab 2",       cap: "24 seats", avail: false },
-  { icon: "🎙️", name: "Seminar Room B", cap: "30 seats", avail: true  },
-  { icon: "🖥️", name: "Computer Lab 3", cap: "40 seats", avail: false },
-  { icon: "📖", name: "Study Room 6",    cap: "6 seats",  avail: true  },
-];
+const STATUS_DOT_COLOR = {
+  PENDING:   "#fbbf24",
+  APPROVED:  "#4ade80",
+  REJECTED:  "#f87171",
+  CANCELLED: "#8892a4",
+};
 
-const myIncidents = [
-  { id: "INC-091", title: "Projector not working — Lab 2", priority: "High",   status: "progress" },
-  { id: "INC-085", title: "Broken chair — Study Room 4",   priority: "Low",    status: "resolved" },
-  { id: "INC-079", title: "AC fault — Seminar Room A",     priority: "Medium", status: "resolved" },
-];
+const TICKET_STATUS_LABEL = {
+  OPEN: "Open", IN_PROGRESS: "In Progress",
+  RESOLVED: "Resolved", CLOSED: "Closed", REJECTED: "Rejected",
+};
 
-const notifications = [
-  { icon: "✅", bg: "var(--status-green-bg)", text: <><strong>Booking Approved</strong> — Computer Lab 2 on Tue 8 Apr approved by Admin</>,             time: "5 min ago",  unread: true  },
-  { icon: "💬", bg: "var(--status-blue-bg)",  text: <><strong>New Comment</strong> — Technician added an update to ticket <strong>#INC-091</strong></>,  time: "1 hr ago",   unread: true  },
-  { icon: "⏳", bg: "var(--status-amber-bg)", text: <><strong>Booking Reminder</strong> — Study Room 4 booking starts in <strong>2 hours</strong></>,    time: "2 hr ago",   unread: false },
-  { icon: "❌", bg: "var(--status-red-bg)",   text: <><strong>Booking Rejected</strong> — Auditorium booking for 5 Apr rejected: already reserved</>,    time: "Yesterday",  unread: false },
-  { icon: "🔧", bg: "var(--status-green-bg)", text: <><strong>Ticket Resolved</strong> — Incident <strong>#INC-085</strong> has been marked resolved</>,  time: "3 days ago", unread: false },
-];
+const FACILITY_TYPE_ICON = {
+  LECTURE_HALL: "🏛️",
+  LAB:          "🔬",
+  MEETING_ROOM: "🎙️",
+  EQUIPMENT:    "🖥️",
+};
 
-const bookingHistory = [
-  { id: "BK-1043", resource: "Computer Lab 2",  date: "8 Apr",  time: "09:00–11:00", purpose: "Group Study",       status: "approved" },
-  { id: "BK-1044", resource: "Study Room 4",    date: "10 Apr", time: "14:00–15:30", purpose: "Project Meeting",   status: "pending"  },
-  { id: "BK-1045", resource: "Seminar Room A",  date: "14 Apr", time: "10:00–12:00", purpose: "Presentation Prep", status: "approved" },
-  { id: "BK-1046", resource: "Computer Lab 1",  date: "16 Apr", time: "15:00–16:00", purpose: "Assignment",        status: "pending"  },
-  { id: "BK-1037", resource: "Auditorium",       date: "5 Apr",  time: "09:00–13:00", purpose: "Club Event",        status: "rejected" },
-  { id: "BK-1029", resource: "Study Room 2",    date: "1 Apr",  time: "13:00–14:00", purpose: "Group Study",       status: "approved" },
-];
+// ── Build 7-day calendar strip centered on today ──────────────────────────────
+function buildCalStrip(bookings) {
+  const days = [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-function useCounter(targets, duration = 1400) {
-  const [vals, setVals] = useState(() =>
-    Object.fromEntries(Object.keys(targets).map(k => [k, 0]))
+  // Build set of date strings that have a booking
+  const bookedDates = new Set(
+    bookings
+      .filter(b => b.status === "APPROVED" || b.status === "PENDING")
+      .map(b => new Date(b.startAt).toDateString())
   );
-  useEffect(() => {
-    const start = performance.now();
-    const tick = (now) => {
-      const p = Math.min((now - start) / duration, 1);
-      const ease = 1 - Math.pow(1 - p, 3);
-      setVals(Object.fromEntries(
-        Object.entries(targets).map(([k, v]) => [k, Math.round(v * ease)])
-      ));
-      if (p < 1) requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  }, []);
-  return vals;
+
+  const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    days.push({
+      name:       DAY_NAMES[d.getDay()],
+      num:        d.getDate(),
+      hasBooking: bookedDates.has(d.toDateString()),
+      today:      i === 0,
+    });
+  }
+  return days;
 }
 
+// ── Static notifications (no notification API yet) ────────────────────────────
+const staticNotifications = [
+  { icon: "💡", bg: "var(--status-teal-bg)",  title: "Welcome",    text: <><strong>SmartCampus</strong> — Book facilities and report incidents from your dashboard.</>, time: "Now",       unread: true  },
+  { icon: "📅", bg: "var(--status-amber-bg)", title: "Reminder",   text: <>Your bookings are now live. Check <strong>My Bookings</strong> for status updates.</>,        time: "Today",     unread: false },
+  { icon: "🔧", bg: "var(--status-blue-bg)",  title: "Tip",        text: <>Use <strong>My Incidents</strong> to track submitted maintenance requests.</>,                 time: "This week", unread: false },
+];
+
+// ── Component ─────────────────────────────────────────────────────────────────
 export default function UserDashboard() {
   const { user } = useAuth();
-  const [reportForm, setReportForm] = useState({ title: "", location: "", priority: "Medium", desc: "" });
-  const kpi = useCounter({ bookings: 12, upcoming: 4, incidents: 3, hours: 28 });
+  const navigate  = useNavigate();
 
-  const getInitials = (name) =>
+  // ── State ──
+  const [bookings,          setBookings]          = useState([]);
+  const [bookingsLoading,   setBookingsLoading]   = useState(true);
+  const [tickets,           setTickets]           = useState([]);
+  const [ticketsLoading,    setTicketsLoading]    = useState(true);
+  const [facilities,        setFacilities]        = useState([]);
+  const [facilitiesLoading, setFacilitiesLoading] = useState(true);
+
+  // ── Fetch all data ──
+  const fetchAll = useCallback(async () => {
+    // Bookings
+    setBookingsLoading(true);
+    try {
+      const res = await bookingApi.fetchMine();
+      setBookings(res.data || []);
+    } catch (_) {}
+    finally { setBookingsLoading(false); }
+
+    // Tickets
+    setTicketsLoading(true);
+    try {
+      const res = await ticketApi.fetchAll();
+      setTickets(res.data || []);
+    } catch (_) {}
+    finally { setTicketsLoading(false); }
+
+    // Facilities
+    setFacilitiesLoading(true);
+    try {
+      const res = await facilityService.getAll({ status: "ACTIVE" });
+      setFacilities(res.data || []);
+    } catch (_) {}
+    finally { setFacilitiesLoading(false); }
+  }, []);
+
+  useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  // ── Derived values ──
+  const now = new Date();
+
+  const upcomingBookings = bookings
+    .filter(b => (b.status === "APPROVED" || b.status === "PENDING") && new Date(b.endAt) > now)
+    .sort((a, b) => new Date(a.startAt) - new Date(b.startAt))
+    .slice(0, 4);
+
+  const totalBookings  = bookings.length;
+  const upcomingCount  = upcomingBookings.length;
+  const openIncidents  = tickets.filter(t => t.status === "OPEN" || t.status === "IN_PROGRESS").length;
+  const recentTickets  = tickets.slice(0, 3);
+  const calDays        = buildCalStrip(bookings);
+
+  // Hours booked = sum of duration of APPROVED bookings
+  const hoursBooked = Math.round(
+    bookings
+      .filter(b => b.status === "APPROVED")
+      .reduce((sum, b) => {
+        const diff = (new Date(b.endAt) - new Date(b.startAt)) / 3600000;
+        return sum + (diff > 0 ? diff : 0);
+      }, 0)
+  );
+
+  // Cancel booking inline
+  const handleCancel = async (id, e) => {
+    e.stopPropagation();
+    if (!window.confirm("Cancel this booking?")) return;
+    try {
+      await bookingApi.cancel(id);
+      fetchAll();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to cancel.");
+    }
+  };
+
+  // User info
+  const getInitials = name =>
     name ? name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase() : "?";
-
-  const firstName = user?.name?.split(" ")[0] || "there";
-
-  // Determine role for greeting
-  const roles = user?.roles || [];
-  const isLecturer = roles.includes("ROLE_LECTURER");
-  const greeting   = isLecturer
+  const firstName   = user?.name?.split(" ")[0] || "there";
+  const roles       = user?.roles || [];
+  const isLecturer  = roles.includes("ROLE_LECTURER");
+  const roleLabel   = isLecturer ? "Faculty" : "Student";
+  const greeting    = isLecturer
     ? `Good morning, ${firstName}! 🎓`
     : `Good morning, ${firstName}! 👋`;
-  const subText    = isLecturer
-    ? "You have upcoming sessions and room reservations. Check your bookings below."
-    : "You have upcoming bookings and open incidents. Have a productive day!";
-  const roleLabel  = isLecturer ? "Faculty" : "Student";
+  const subText     = `You have ${upcomingCount} upcoming booking${upcomingCount !== 1 ? "s" : ""} and ${openIncidents} open incident${openIncidents !== 1 ? "s" : ""}.`;
 
   return (
     <div style={{ padding: "32px", minHeight: "calc(100vh - 60px)" }}>
       <style dangerouslySetInnerHTML={{ __html: styles }} />
 
-      {/* Welcome Banner */}
+      {/* ── Welcome Banner ── */}
       <div className="welcome-banner fade-in">
         <div className="welcome-avatar">
           {user?.picture
-            ? <img src={user.picture} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            ? <img src={user.picture} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
             : getInitials(user?.name)}
         </div>
         <div className="welcome-text">
@@ -283,23 +338,51 @@ export default function UserDashboard() {
           <div className="welcome-sub">{subText}</div>
         </div>
         <div className="welcome-actions">
-          <button className="btn-ghost">📅 My Schedule</button>
-          <button className="btn-primary">＋ Book a Room</button>
+          <button className="btn-ghost" onClick={() => navigate("/dashboard/incidents")}>
+            🔧 My Incidents
+          </button>
+          <button className="btn-primary" onClick={() => navigate("/dashboard/bookings")}>
+            ＋ Book a Room
+          </button>
         </div>
       </div>
 
-      {/* KPI Row */}
+      {/* ── KPI Row — all live ── */}
       <div className="kpi-grid">
         {[
-          { icon: "📅", label: "Total Bookings", value: kpi.bookings,  change: "This semester", up: null,  sub: "All reservations" },
-          { icon: "⏰", label: "Upcoming",        value: kpi.upcoming,  change: "Next 7 days",   up: null,  sub: "Confirmed + pending" },
-          { icon: "🔧", label: "My Incidents",   value: kpi.incidents, change: "1 open",        up: false, sub: "Submitted reports" },
-          { icon: "🏛️", label: "Hours Booked",  value: kpi.hours,     change: "+4 this week",  up: true,  sub: "Facility hours used" },
+          {
+            icon: "📅", label: "Total Bookings",
+            value: bookingsLoading ? "…" : totalBookings,
+            change: "This semester", up: null, sub: "All reservations",
+            onClick: () => navigate("/dashboard/bookings"),
+          },
+          {
+            icon: "⏰", label: "Upcoming",
+            value: bookingsLoading ? "…" : upcomingCount,
+            change: "Next 7 days", up: null, sub: "Confirmed + pending",
+            onClick: () => navigate("/dashboard/bookings"),
+          },
+          {
+            icon: "🔧", label: "Open Incidents",
+            value: ticketsLoading ? "…" : openIncidents,
+            change: openIncidents > 0 ? `${openIncidents} active` : "All clear",
+            up: openIncidents > 0 ? false : null,
+            sub: "Submitted reports",
+            onClick: () => navigate("/dashboard/incidents"),
+          },
+          {
+            icon: "🏛️", label: "Hours Booked",
+            value: bookingsLoading ? "…" : hoursBooked,
+            change: "Approved slots", up: true, sub: "Facility hours used",
+            onClick: () => navigate("/dashboard/bookings"),
+          },
         ].map((k, i) => (
-          <div className={`kpi-card fade-in-${i + 1}`} key={k.label}>
+          <div className={`kpi-card fade-in-${i + 1}`} key={k.label} onClick={k.onClick}>
             <div className="kpi-card-top">
               <div className="kpi-icon">{k.icon}</div>
-              <div className={`kpi-change ${k.up === null ? "neutral" : k.up ? "up" : "down"}`}>{k.change}</div>
+              <div className={`kpi-change ${k.up === null ? "neutral" : k.up ? "up" : "down"}`}>
+                {k.change}
+              </div>
             </div>
             <div className="kpi-value">{k.value}</div>
             <div className="kpi-label">{k.label}</div>
@@ -308,20 +391,27 @@ export default function UserDashboard() {
         ))}
       </div>
 
-      {/* Row 1: Bookings Calendar + Notifications */}
+      {/* ── Row 1: Upcoming Bookings + Notifications ── */}
       <div className="content-grid fade-in-2">
+
+        {/* Upcoming Bookings with real calendar */}
         <div className="card">
           <div className="card-header">
             <div>
               <div className="card-title"><span>📅</span> Upcoming Bookings</div>
               <div className="card-subtitle">Your confirmed & pending reservations</div>
             </div>
-            <button className="card-action">All bookings →</button>
+            <button className="card-action" onClick={() => navigate("/dashboard/bookings")}>
+              All bookings →
+            </button>
           </div>
+
+          {/* Calendar strip — marks days that have bookings */}
           <div style={{ padding: "16px 22px 12px" }}>
             <div className="calendar-strip">
               {calDays.map(d => (
-                <div key={d.num} className={`cal-day${d.hasBooking ? " has-booking" : ""}${d.today ? " today" : ""}`}>
+                <div key={d.num}
+                  className={`cal-day${d.hasBooking ? " has-booking" : ""}${d.today ? " today" : ""}`}>
                   <div className="cal-day-name">{d.name}</div>
                   <div className="cal-day-num">{d.num}</div>
                   {d.hasBooking && <div className="cal-day-dot" />}
@@ -329,39 +419,56 @@ export default function UserDashboard() {
               ))}
             </div>
           </div>
-          <div className="booking-list">
-            {upcomingBookings.map((b, i) => (
-              <div className="booking-item" key={i}>
-                <div className="booking-time-col">
-                  <div className="booking-time">{b.time}</div>
-                  <div className="booking-date">{b.date}</div>
-                </div>
-                <div className="booking-bar" style={{ background: b.color }} />
-                <div className="booking-body">
-                  <div className="booking-title">{b.title}</div>
-                  <div className="booking-meta">{b.meta}</div>
-                </div>
-                <div className="booking-status-col">
-                  <span className={`badge ${b.status}`}>
-                    <span className="badge-dot" style={{ background: b.color }} />
-                    {b.status.charAt(0).toUpperCase() + b.status.slice(1)}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
+
+          {/* Booking list */}
+          {bookingsLoading ? (
+            <div className="empty-state">Loading bookings…</div>
+          ) : upcomingBookings.length === 0 ? (
+            <div className="empty-state">No upcoming bookings. <span style={{ color:"var(--status-teal)", cursor:"pointer" }} onClick={() => navigate("/dashboard/bookings")}>Book a room →</span></div>
+          ) : (
+            <div className="booking-list">
+              {upcomingBookings.map(b => {
+                const color = b.status === "APPROVED" ? "#4ade80" : "#fbbf24";
+                return (
+                  <div className="booking-item" key={b.id}
+                    onClick={() => navigate("/dashboard/bookings")}>
+                    <div className="booking-time-col">
+                      <div className="booking-time">{fmtTime(b.startAt)}</div>
+                      <div className="booking-date">{fmtDate(b.startAt)}</div>
+                    </div>
+                    <div className="booking-bar" style={{ background: color }} />
+                    <div className="booking-body">
+                      <div className="booking-title">
+                        {b.facilityName} {b.purpose ? `— ${b.purpose}` : ""}
+                      </div>
+                      <div className="booking-meta">
+                        {b.facilityType?.replace("_", " ")} · {b.location}
+                        {b.expectedAttendees ? ` · ${b.expectedAttendees} attendees` : ""}
+                      </div>
+                    </div>
+                    <div className="booking-status-col">
+                      <span className={`badge ${b.status}`}>
+                        <span className="badge-dot" style={{ background: color }} />
+                        {b.status.charAt(0) + b.status.slice(1).toLowerCase()}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
+        {/* Notifications — static for now */}
         <div className="card">
           <div className="card-header">
             <div>
               <div className="card-title"><span>🔔</span> Notifications</div>
-              <div className="card-subtitle">2 unread messages</div>
+              <div className="card-subtitle">Platform updates</div>
             </div>
-            <button className="card-action">Mark all read</button>
           </div>
           <div className="notif-list">
-            {notifications.map((n, i) => (
+            {staticNotifications.map((n, i) => (
               <div className={`notif-item${n.unread ? " unread" : ""}`} key={i}>
                 <div className="notif-icon-wrap" style={{ background: n.bg }}>{n.icon}</div>
                 <div className="notif-body">
@@ -375,140 +482,202 @@ export default function UserDashboard() {
         </div>
       </div>
 
-      {/* Row 2: Available Rooms + Incidents + Report */}
+      {/* ── Row 2: Available Rooms + My Incidents ── */}
       <div className="content-grid fade-in-3">
+
+        {/* Available rooms — live from API */}
         <div className="card">
           <div className="card-header">
             <div>
               <div className="card-title"><span>🏛️</span> Available Right Now</div>
-              <div className="card-subtitle">Open for booking today</div>
-            </div>
-            <button className="card-action">Browse all →</button>
-          </div>
-          <div className="room-grid">
-            {availableRooms.map(r => (
-              <div className={`room-card${r.avail ? "" : " unavailable"}`} key={r.name}>
-                <div className="room-icon">{r.icon}</div>
-                <div className="room-name">{r.name}</div>
-                <div className="room-cap">👥 {r.cap}</div>
-                <div className={`room-avail ${r.avail ? "free" : "busy"}`}>
-                  {r.avail ? "Available" : "Occupied"}
-                </div>
+              <div className="card-subtitle">
+                {facilitiesLoading ? "Loading…" : `${facilities.length} active facilities`}
               </div>
-            ))}
+            </div>
+            <button className="card-action" onClick={() => navigate("/dashboard/bookings")}>
+              Book one →
+            </button>
           </div>
+          {facilitiesLoading ? (
+            <div className="empty-state">Loading facilities…</div>
+          ) : facilities.length === 0 ? (
+            <div className="empty-state">No active facilities found.</div>
+          ) : (
+            <div className="room-grid">
+              {facilities.slice(0, 6).map(f => (
+                <div className="room-card" key={f.id}
+                  onClick={() => navigate("/dashboard/bookings")}>
+                  <div className="room-icon">
+                    {FACILITY_TYPE_ICON[f.type] || "🏢"}
+                  </div>
+                  <div className="room-name">{f.name}</div>
+                  <div className="room-cap">
+                    {f.type === "EQUIPMENT"
+                      ? f.type.replace("_", " ")
+                      : f.capacity ? `👥 ${f.capacity} seats` : f.location}
+                  </div>
+                  <div className="room-avail free">Available</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-          {/* Incidents */}
+        {/* My Incidents — live from API */}
+        <div style={{ display:"flex", flexDirection:"column", gap:"20px" }}>
           <div className="card">
             <div className="card-header">
               <div>
                 <div className="card-title"><span>🔧</span> My Incident Reports</div>
-                <div className="card-subtitle">Submitted tickets</div>
+                <div className="card-subtitle">
+                  {ticketsLoading ? "Loading…" : `${tickets.length} submitted ticket${tickets.length !== 1 ? "s" : ""}`}
+                </div>
               </div>
-              <button className="card-action">View all →</button>
+              <button className="card-action" onClick={() => navigate("/dashboard/incidents")}>
+                View all →
+              </button>
             </div>
-            <div className="table-wrap">
-              <table>
-                <thead><tr><th>ID</th><th>Issue</th><th>Status</th></tr></thead>
-                <tbody>
-                  {myIncidents.map(t => (
-                    <tr key={t.id}>
-                      <td style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>{t.id}</td>
-                      <td style={{ fontSize: 12 }}>{t.title}</td>
-                      <td>
-                        <span className={`badge ${t.status}`}>
-                          {t.status === "progress" ? "In Progress" : t.status.charAt(0).toUpperCase() + t.status.slice(1)}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {ticketsLoading ? (
+              <div className="empty-state">Loading…</div>
+            ) : tickets.length === 0 ? (
+              <div className="empty-state">
+                No tickets yet. <span style={{ color:"var(--status-teal)", cursor:"pointer" }}
+                  onClick={() => navigate("/dashboard/incidents")}>Report an issue →</span>
+              </div>
+            ) : (
+              <div className="table-wrap">
+                <table>
+                  <thead><tr><th>ID</th><th>Location</th><th>Status</th></tr></thead>
+                  <tbody>
+                    {recentTickets.map(t => (
+                      <tr key={t.id} onClick={() => navigate("/dashboard/incidents")}>
+                        <td style={{ fontFamily:"var(--font-mono)", fontSize:11 }}>#{t.id}</td>
+                        <td style={{ fontSize:12 }}>{t.resourceLocation}</td>
+                        <td>
+                          <span className={`badge ${t.status}`}>
+                            {TICKET_STATUS_LABEL[t.status] || t.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
-          {/* Report Form */}
+          {/* Quick actions card */}
           <div className="card">
             <div className="card-header">
-              <div className="card-title"><span>📝</span> Report an Issue</div>
+              <div className="card-title"><span>⚡</span> Quick Actions</div>
             </div>
-            <div className="report-form">
-              <div className="form-row">
-                <div className="form-field">
-                  <label className="form-label">Issue Title</label>
-                  <input className="form-input" placeholder="e.g. Projector not working"
-                    value={reportForm.title} onChange={e => setReportForm(f => ({ ...f, title: e.target.value }))} />
-                </div>
-                <div className="form-field">
-                  <label className="form-label">Priority</label>
-                  <select className="form-select" value={reportForm.priority}
-                    onChange={e => setReportForm(f => ({ ...f, priority: e.target.value }))}>
-                    <option>Low</option><option>Medium</option><option>High</option>
-                  </select>
-                </div>
-              </div>
-              <div className="form-field">
-                <label className="form-label">Location</label>
-                <input className="form-input" placeholder="e.g. Lab A-102, Block C"
-                  value={reportForm.location} onChange={e => setReportForm(f => ({ ...f, location: e.target.value }))} />
-              </div>
-              <div className="form-field">
-                <label className="form-label">Description</label>
-                <textarea className="form-textarea" placeholder="Describe the issue in detail…"
-                  value={reportForm.desc} onChange={e => setReportForm(f => ({ ...f, desc: e.target.value }))} />
-              </div>
-              <button className="btn-primary" style={{ alignSelf: "flex-start" }}>Submit Report →</button>
+            <div style={{ padding:"16px 22px", display:"flex", flexDirection:"column", gap:10 }}>
+              <button className="btn-primary" onClick={() => navigate("/dashboard/bookings")}>
+                📅 New Booking
+              </button>
+              <button className="btn-ghost" onClick={() => navigate("/dashboard/incidents")}>
+                🔧 Report an Issue
+              </button>
+              <button className="btn-ghost" onClick={() => navigate("/dashboard/bookings")}>
+                🗂️ View All Bookings
+              </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Row 3: Booking History */}
-      <div className="card fade-in-4" style={{ marginBottom: "40px" }}>
+      {/* ── Row 3: Booking History — live ── */}
+      <div className="card fade-in-4" style={{ marginBottom:"40px" }}>
         <div className="card-header">
           <div>
             <div className="card-title"><span>🗂️</span> Booking History</div>
-            <div className="card-subtitle">All your past and current reservations</div>
+            <div className="card-subtitle">
+              {bookingsLoading ? "Loading…" : `${bookings.length} total booking${bookings.length !== 1 ? "s" : ""}`}
+            </div>
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button className="btn-ghost">Filter</button>
-            <button className="btn-primary">＋ New Booking</button>
+          <div style={{ display:"flex", gap:8 }}>
+            <button className="btn-ghost" onClick={fetchAll}>↻ Refresh</button>
+            <button className="btn-primary" onClick={() => navigate("/dashboard/bookings")}>
+              ＋ New Booking
+            </button>
           </div>
         </div>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr><th>Booking ID</th><th>Resource</th><th>Date</th><th>Time Slot</th><th>Purpose</th><th>Status</th><th>Action</th></tr>
-            </thead>
-            <tbody>
-              {bookingHistory.map(b => (
-                <tr key={b.id}>
-                  <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{b.id}</td>
-                  <td>{b.resource}</td>
-                  <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{b.date}</td>
-                  <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{b.time}</td>
-                  <td style={{ color: "var(--text-muted)", fontSize: 12 }}>{b.purpose}</td>
-                  <td>
-                    <span className={`badge ${b.status}`}>
-                      <span className="badge-dot" style={{
-                        background: b.status === "approved" ? "var(--status-green)" : b.status === "pending" ? "var(--status-amber)" : "var(--status-red)"
-                      }} />
-                      {b.status.charAt(0).toUpperCase() + b.status.slice(1)}
-                    </span>
-                  </td>
-                  <td>
-                    {b.status === "pending" || b.status === "approved"
-                      ? <button className="btn-ghost" style={{ padding: "4px 10px", fontSize: 11 }}>Cancel</button>
-                      : <button className="card-action" style={{ fontSize: 11 }}>View →</button>
-                    }
-                  </td>
+
+        {bookingsLoading ? (
+          <div className="empty-state">Loading bookings…</div>
+        ) : bookings.length === 0 ? (
+          <div className="empty-state">No bookings yet.</div>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Facility</th>
+                  <th>Start</th>
+                  <th>End</th>
+                  <th>Purpose</th>
+                  <th>Status</th>
+                  <th>Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {bookings.slice(0, 8).map(b => (
+                  <tr key={b.id} onClick={() => navigate("/dashboard/bookings")}>
+                    <td style={{ fontFamily:"var(--font-mono)", fontSize:12 }}>#{b.id}</td>
+                    <td>
+                      <div style={{ fontWeight:600 }}>{b.facilityName}</div>
+                      <div style={{ fontSize:11, color:"var(--text-muted)" }}>
+                        {b.facilityType?.replace("_"," ")} · {b.location}
+                      </div>
+                    </td>
+                    <td style={{ fontFamily:"var(--font-mono)", fontSize:11, color:"var(--text-muted)" }}>
+                      {fmtDate(b.startAt)} {fmtTime(b.startAt)}
+                    </td>
+                    <td style={{ fontFamily:"var(--font-mono)", fontSize:11, color:"var(--text-muted)" }}>
+                      {fmtTime(b.endAt)}
+                    </td>
+                    <td style={{ color:"var(--text-muted)", fontSize:12, maxWidth:120, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                      {b.purpose || "—"}
+                    </td>
+                    <td>
+                      <span className={`badge ${b.status}`}>
+                        <span className="badge-dot" style={{ background: STATUS_DOT_COLOR[b.status] }} />
+                        {b.status.charAt(0) + b.status.slice(1).toLowerCase()}
+                      </span>
+                    </td>
+                    <td onClick={e => e.stopPropagation()}>
+                      {(b.status === "PENDING" || b.status === "APPROVED") ? (
+                        <button
+                          style={{
+                            padding:"4px 10px", fontSize:11, cursor:"pointer",
+                            borderRadius:"var(--radius-sm)", border:"1px solid rgba(248,113,113,0.3)",
+                            background:"var(--status-red-bg)", color:"var(--status-red)",
+                            fontFamily:"var(--font-mono)",
+                          }}
+                          onClick={e => handleCancel(b.id, e)}>
+                          Cancel
+                        </button>
+                      ) : (
+                        <button className="card-action" style={{ fontSize:11 }}
+                          onClick={() => navigate("/dashboard/bookings")}>
+                          View →
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {bookings.length > 8 && (
+              <div style={{ padding:"12px 22px", textAlign:"center" }}>
+                <button className="card-action" onClick={() => navigate("/dashboard/bookings")}>
+                  View all {bookings.length} bookings →
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
