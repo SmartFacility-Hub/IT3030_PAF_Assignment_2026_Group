@@ -1,4 +1,4 @@
-package com.smartfacility;
+package com.smartfacility.app;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

@@ -1,7 +1,5 @@
 import { useAuth } from '../context/AuthContext';
 import AdminLayout from '../components/AdminLayout';
-import StudentLayout from '../components/StudentLayout';
-import LecturerLayout from '../components/LecturerLayout';
 import { Outlet } from 'react-router-dom';
 
 /**
@@ -21,15 +19,7 @@ export default function BookingsShell() {
     return <AdminLayout />;
   }
   
-  if (isStudent) {
-    return <StudentLayout />;
-  }
-  
-  if (isLecturer) {
-    return <LecturerLayout />;
-  }
-
-  // Fallback
+    // Fallback
   return (
     <div className="bookings-module" style={{padding: '24px'}}>
       <main className="bookings-main">
