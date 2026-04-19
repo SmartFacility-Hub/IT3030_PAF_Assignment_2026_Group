@@ -96,9 +96,9 @@ export const bookingApi = {
 
 /** Image src for ticket attachments: uses Cloudinary HTTPS from API when present, else local download URL. */
 export function resolveAttachmentImageSrc(attachment, ticketId) {
-  const u = attachment?.downloadUrl;
-  if (u && (u.startsWith('http://') || u.startsWith('https://'))) {
-    return u;
+  const u = attachment?.downloadUrl?.trim?.() ?? attachment?.downloadUrl;
+  if (u && (u.startsWith('http://') || u.startsWith('https://') || u.startsWith('//'))) {
+    return u.startsWith('//') ? `https:${u}` : u;
   }
   const path =
     u && u.startsWith('/')

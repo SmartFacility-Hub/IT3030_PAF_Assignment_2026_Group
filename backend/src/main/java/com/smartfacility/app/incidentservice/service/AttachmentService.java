@@ -119,6 +119,10 @@ public class AttachmentService {
                  "Attachment not found with id: " + attachmentId
             ));
 
+        if (attachment.getTicket() == null || !attachment.getTicket().getId().equals(ticketId)) {
+            throw new ResourceNotFoundException("Attachment not found with id: " + attachmentId);
+        }
+
         try {
             if (StringUtils.hasText(attachment.getCloudinaryUrl())) {
                 Resource resource = new UrlResource(URI.create(attachment.getCloudinaryUrl().trim()));

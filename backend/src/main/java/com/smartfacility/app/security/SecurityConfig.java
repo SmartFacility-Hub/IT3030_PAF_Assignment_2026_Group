@@ -45,6 +45,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        // Ticket images: <img> cannot send JWT; allow GET of binary (local disk or proxied).
+                        // Prefer Cloudinary HTTPS in API responses so images load without hitting the API.
+                        .requestMatchers(HttpMethod.GET, "/api/tickets/*/attachments/*/download").permitAll()
 
                         // Admin-only endpoints
                         .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
