@@ -304,12 +304,141 @@ const recentBookings = [
   { id: "BK-1038", resource: "Auditorium",      user: "Dr. K. Mendis",  date: "8 Apr",  time: "09:00–13:00", status: "rejected" },
 ];
 
-const resourceUtilisation = [
-  { name: "Lecture Halls", pct: 82, color: "#f5a623" },
-  { name: "Computer Labs",  pct: 67, color: "#60a5fa" },
-  { name: "Meeting Rooms",  pct: 45, color: "#a78bfa" },
-  { name: "Equipment",      pct: 38, color: "#34d399" },
-];
+// ─── Status helpers ───────────────────────────────────────────────────────────
+const STATUS_DOT   = { OPEN:"var(--status-red)", IN_PROGRESS:"var(--status-amber)", RESOLVED:"var(--status-green)", CLOSED:"var(--text-muted)", REJECTED:"var(--status-red)" };
+const STATUS_BG    = { OPEN:"var(--status-red-bg)", IN_PROGRESS:"var(--status-amber-bg)", RESOLVED:"var(--status-green-bg)", CLOSED:"var(--bg-elevated)", REJECTED:"var(--status-red-bg)" };
+const STATUS_CLR   = { OPEN:"var(--status-red)", IN_PROGRESS:"var(--status-amber)", RESOLVED:"var(--status-green)", CLOSED:"var(--text-muted)", REJECTED:"var(--status-red)" };
+const STATUS_LABEL = { OPEN:"Open", IN_PROGRESS:"In Progress", RESOLVED:"Resolved", CLOSED:"Closed", REJECTED:"Rejected" };
+const PRIO_BG      = { HIGH:"var(--status-red-bg)", CRITICAL:"var(--status-red-bg)", MEDIUM:"var(--status-amber-bg)", LOW:"var(--bg-elevated)" };
+const PRIO_CLR     = { HIGH:"var(--status-red)", CRITICAL:"var(--status-red)", MEDIUM:"var(--status-amber)", LOW:"var(--text-muted)" };
+const VALID_NEXT   = { OPEN:["IN_PROGRESS","REJECTED"], IN_PROGRESS:["RESOLVED","REJECTED"], RESOLVED:["CLOSED"], CLOSED:[], REJECTED:[] };
+
+// ─── Assign Technician Modal ──────────────────────────────────────────────────
+function AssignModal({ ticket, technicians, onClose, onDone }) {
+  const [techEmail, setTechEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async e => {
+    e.preventDefault();
+    if (!techEmail) { setError("Please select a technician."); return; }
+    setLoading(true);
+    try {
+      await ticketApi.assign(ticket.id, techEmail);
+      onDone();
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to assign technician.");
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div className="adm-modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="adm-modal">
+        <div className="adm-modal-title">👷 Assign Technician — Ticket #{ticket.id}</div>
+        {error && <div className="adm-error">{error}</div>}
+        <form onSubmit={handleSubmit}>
+          <div className="adm-form-group">
+            <label className="adm-label">Technician</label>
+            <select className="adm-select" value={techEmail} onChange={e => setTechEmail(e.target.value)}>
+              {technicians.length === 0 ? (
+                <option value="">— No technicians available —</option>
+              ) : (
+                <>
+                  <option value="">— Select technician —</option>
+                  {technicians.map(t => (
+                    <option key={t.email} value={t.email}>{t.name} ({t.email})</option>
+                  ))}
+                </>
+              )}
+            </select>
+            {technicians.length === 0 && (
+              <p style={{ fontSize: '11px', color: 'var(--status-amber)', marginTop: '8px', lineHeight: '1.4' }}>
+                💡 <strong>Tip:</strong> Promote users to Technicians first using the <strong>Users & Roles</strong> table below.
+              </p>
+            )}
+          </div>
+          <div className="adm-modal-footer">
+            <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn-primary" disabled={loading}>
+              {loading ? "Assigning…" : "Assign"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── Update Status Modal ──────────────────────────────────────────────────────
+function StatusModal({ ticket, onClose, onDone }) {
+  const nextOptions = VALID_NEXT[ticket.status] || [];
+  const [status, setStatus] = useState(nextOptions[0] || "");
+  const [reason, setReason] = useState("");
+  const [notes, setNotes] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async e => {
+    e.preventDefault();
+    if (status === "REJECTED" && !reason.trim()) { setError("Rejection reason required."); return; }
+    if (status === "RESOLVED" && !notes.trim()) { setError("Resolution notes required."); return; }
+    setLoading(true);
+    try {
+      await ticketApi.updateStatus(ticket.id, { status, reason, resolutionNotes: notes });
+      onDone();
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to update status.");
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div className="adm-modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="adm-modal">
+        <div className="adm-modal-title">⚙️ Update Status — Ticket #{ticket.id}</div>
+        {error && <div className="adm-error">{error}</div>}
+        {nextOptions.length === 0 ? (
+          <p style={{ fontSize:13, color:"var(--text-muted)" }}>Terminal state — no further updates allowed.</p>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            <div className="adm-form-group">
+              <label className="adm-label">New Status</label>
+              <select className="adm-select" value={status} onChange={e => setStatus(e.target.value)}>
+                {nextOptions.map(s => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
+              </select>
+            </div>
+            {status === "REJECTED" && (
+              <div className="adm-form-group">
+                <label className="adm-label">Rejection Reason *</label>
+                <textarea className="adm-textarea" value={reason} onChange={e => setReason(e.target.value)}
+                  placeholder="Explain why…" />
+              </div>
+            )}
+            {status === "RESOLVED" && (
+              <div className="adm-form-group">
+                <label className="adm-label">Resolution Notes *</label>
+                <textarea className="adm-textarea" value={notes} onChange={e => setNotes(e.target.value)}
+                  placeholder="Describe what was done…" />
+              </div>
+            )}
+            <div className="adm-modal-footer">
+              <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
+              <button type="submit" className="btn-primary" disabled={loading}>
+                {loading ? "Saving…" : "Update"}
+              </button>
+            </div>
+          </form>
+        )}
+        {nextOptions.length === 0 && (
+          <div className="adm-modal-footer">
+            <button className="btn-ghost" onClick={onClose}>Close</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
 
 const healthItems = [
   { name: "API Server",    val: "12 ms", status: "Healthy",  color: "#4ade80" },
@@ -376,6 +505,10 @@ export default function AdminDashboard() {
   const [usersLoading, setUsersLoading] = useState(false);
   const [tickets, setTickets] = useState([]);
   const [ticketsLoading, setTicketsLoading] = useState(false);
+  const [facilities, setFacilities] = useState([]);
+   const [assigning, setAssigning] = useState(null);  // ticket to assign
+  const [statusUpdating, setStatusUpdating] = useState(null); // ticket to update status
+  const [selectedTicket, setSelectedTicket] = useState(null);
 
   const kpi = useCounter({ bookings: 1247, assets: 382, uptime: 99 });
   const openCount = tickets.filter(t => t.status === "OPEN" || t.status === "IN_PROGRESS").length;
@@ -407,6 +540,15 @@ export default function AdminDashboard() {
     }
   }, []);
 
+  const fetchFacilities = useCallback(async () => {
+    try {
+      const res = await api.get('/api/facilities');
+      setFacilities(res.data);
+    } catch (err) {
+      console.error('Failed to fetch facilities:', err);
+    }
+  }, []);
+
   // Fetch all tickets
   const fetchTickets = useCallback(async () => {
     setTicketsLoading(true);
@@ -420,7 +562,7 @@ export default function AdminDashboard() {
     }
   }, []);
 
-  useEffect(() => { fetchUsers(); fetchTickets(); }, [fetchUsers, fetchTickets]);
+  useEffect(() => { fetchUsers(); fetchTickets(); fetchFacilities(); }, [fetchUsers, fetchTickets, fetchFacilities]);
 
   const handleRoleChange = async (userId, newRoles) => {
     try {
@@ -458,7 +600,7 @@ export default function AdminDashboard() {
         <div className="kpi-grid">
           {[
             { icon: "📅", label: "Total Bookings",    value: kpi.bookings.toLocaleString() + "+", change: "+12%",    up: true,    sub: "This semester" },
-            { icon: "🖥️", label: "Assets Tracked",   value: kpi.assets,                          change: "+8 today", up: true,    sub: "Active inventory" },
+            { icon: "🏛️", label: "Total Resources",  value: facilities.length || "—",                         change: "+8 today", up: true,    sub: "Active inventory" },
             { icon: "🔧", label: "Open Incidents",    value: ticketsLoading ? "…" : openCount,    change: "Live",     up: null,    sub: "Active tickets" },
             { icon: "⚡",  label: "Platform Uptime",  value: kpi.uptime + "%",                    change: "Stable",   up: null,    sub: "Last 30 days" },
           ].map((k, i) => (
@@ -598,30 +740,59 @@ export default function AdminDashboard() {
         <div className="card">
           <div className="card-header">
             <div>
-              <div className="card-title"><span className="card-title-icon">📐</span> Resource Utilisation</div>
-              <div className="card-subtitle">This week</div>
+              <div className="card-title"><span className="card-title-icon">📐</span> Resource Breakdown</div>
+              <div className="card-subtitle">By type — live from database</div>
             </div>
           </div>
-          <div className="donut-wrap">
-            <Donut segments={[
-              { value: 34, color: "#f5a623" },
-              { value: 28, color: "#60a5fa" },
-              { value: 18, color: "#a78bfa" },
-              { value: 12, color: "#34d399" },
-            ]} />
-          </div>
-          <div className="donut-legend">
-            {resourceUtilisation.map(r => (
-              <div className="donut-legend-row" key={r.name}>
-                <div className="legend-dot" style={{ width: 8, height: 8, borderRadius: "50%", background: r.color, flexShrink: 0 }} />
-                <span style={{ fontSize: 12, color: "var(--text-secondary)", flex: 1 }}>{r.name}</span>
-                <div className="donut-legend-bar-wrap">
-                  <div className="donut-legend-bar" style={{ width: `${r.pct}%`, background: r.color }} />
+          {(() => {
+            // ── Compute counts per type from live facilities data ──
+            const typeConfig = [
+              { key: "LECTURE_HALL", label: "Lecture Halls", color: "#f5a623" },
+              { key: "LAB",          label: "Labs",          color: "#60a5fa" },
+              { key: "MEETING_ROOM", label: "Meeting Rooms", color: "#a78bfa" },
+              { key: "EQUIPMENT",    label: "Equipment",     color: "#34d399" },
+            ];
+
+            const counts = typeConfig.map(t => ({
+              ...t,
+              count: facilities.filter(f => f.type === t.key).length,
+            }));
+
+            const total = counts.reduce((sum, t) => sum + t.count, 0) || 1;
+
+            const donutSegments = counts
+              .filter(t => t.count > 0)
+              .map(t => ({ value: t.count, color: t.color }));
+
+            return (
+              <>
+                <div className="donut-wrap">
+                  {total === 1 && facilities.length === 0 ? (
+                    <div style={{ padding: "20px", textAlign: "center", color: "var(--text-muted)", fontFamily: "var(--font-mono)", fontSize: 12 }}>
+                      No resources yet
+                    </div>
+                  ) : (
+                    <Donut segments={donutSegments.length > 0 ? donutSegments : [{ value: 1, color: "var(--bg-elevated)" }]} />
+                  )}
                 </div>
-                <div className="donut-legend-val">{r.pct}%</div>
-              </div>
-            ))}
-          </div>
+                <div className="donut-legend">
+                  {counts.map(r => (
+                    <div className="donut-legend-row" key={r.key}>
+                      <div className="legend-dot" style={{ width: 8, height: 8, borderRadius: "50%", background: r.color, flexShrink: 0 }} />
+                      <span style={{ fontSize: 12, color: "var(--text-secondary)", flex: 1 }}>{r.label}</span>
+                      <div className="donut-legend-bar-wrap">
+                        <div className="donut-legend-bar" style={{
+                          width: `${Math.round((r.count / (facilities.length || 1)) * 100)}%`,
+                          background: r.color
+                        }} />
+                      </div>
+                      <div className="donut-legend-val">{r.count}</div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            );
+          })()}
         </div>
 
           {/* Open Incidents — recently added (compact; full management on Incidents page) */}
