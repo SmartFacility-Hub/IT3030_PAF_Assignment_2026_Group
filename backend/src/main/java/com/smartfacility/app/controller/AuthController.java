@@ -12,7 +12,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -24,9 +23,9 @@ public class AuthController {
     private final PasswordEncoder passwordEncoder;
 
     public AuthController(UserRepository userRepository,
-                           RoleRepository roleRepository,
-                           JwtUtils jwtUtils,
-                           PasswordEncoder passwordEncoder) {
+            RoleRepository roleRepository,
+            JwtUtils jwtUtils,
+            PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.jwtUtils = jwtUtils;
@@ -140,7 +139,7 @@ public class AuthController {
 
         if (user.getPassword() == null || user.getPassword().isBlank()) {
             return ResponseEntity.status(401).body(
-                Map.of("error", "This account uses Google sign-in. Please use Google to log in."));
+                    Map.of("error", "This account uses Google sign-in. Please use Google to log in."));
         }
 
         if (!passwordEncoder.matches(password, user.getPassword())) {
@@ -168,7 +167,8 @@ public class AuthController {
 
     /**
      * POST /api/auth/google
-     * Alternative flow: frontend sends Google ID token, backend verifies and returns JWT.
+     * Alternative flow: frontend sends Google ID token, backend verifies and
+     * returns JWT.
      * Expects JSON body: { "credential": "GOOGLE_ID_TOKEN" }
      */
     @PostMapping("/google")
@@ -181,21 +181,17 @@ public class AuthController {
 
         try {
             // Verify Google ID token
-            com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier verifier =
-                new com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier.Builder(
+            com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier verifier = new com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier.Builder(
                     new com.google.api.client.http.javanet.NetHttpTransport(),
-                    com.google.api.client.json.gson.GsonFactory.getDefaultInstance()
-                ).build();
+                    com.google.api.client.json.gson.GsonFactory.getDefaultInstance()).build();
 
-            com.google.api.client.googleapis.auth.oauth2.GoogleIdToken googleIdToken =
-                verifier.verify(idTokenString);
+            com.google.api.client.googleapis.auth.oauth2.GoogleIdToken googleIdToken = verifier.verify(idTokenString);
 
             if (googleIdToken == null) {
                 return ResponseEntity.status(401).body(Map.of("error", "Invalid Google ID token"));
             }
 
-            com.google.api.client.googleapis.auth.oauth2.GoogleIdToken.Payload payload =
-                googleIdToken.getPayload();
+            com.google.api.client.googleapis.auth.oauth2.GoogleIdToken.Payload payload = googleIdToken.getPayload();
 
             String email = payload.getEmail();
             String name = (String) payload.get("name");

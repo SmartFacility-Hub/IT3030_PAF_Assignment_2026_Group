@@ -40,6 +40,15 @@ function App() {
             <Route path="facilities" element={<FacilitiesPage />} />
           </Route>
 
+          {/* Protected: TECHNICIAN or ADMIN */}
+          <Route
+            path="/technician"
+            element={
+              <ProtectedRoute requiredRole="ROLE_TECHNICIAN">
+                <TechnicianDashboard />
+              </ProtectedRoute>
+            }
+          />
         </Routes>
       </Router>
     </AuthProvider>
