@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { ticketApi, API_BASE_URL } from "../../services/api";
+import { ticketApi, resolveAttachmentImageSrc } from "../../services/api";
 
 export const STATUS_DOT = {
   OPEN: "var(--status-red)",
@@ -317,9 +317,6 @@ export function TicketDetailPanel({ ticket, onClose, onRefresh }) {
   const fmt = (d) =>
     d ? new Date(d).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
 
-  const attachUrl = (attachmentId) =>
-    `${API_BASE_URL}/api/tickets/${ticket.id}/attachments/${attachmentId}/download`;
-
   return (
     <>
       <div className="adm-panel-overlay" onClick={onClose} role="presentation" />
@@ -395,9 +392,9 @@ export function TicketDetailPanel({ ticket, onClose, onRefresh }) {
                   <img
                     key={a.id}
                     className="adm-attach-thumb"
-                    src={attachUrl(a.id)}
+                    src={resolveAttachmentImageSrc(a, ticket.id)}
                     alt=""
-                    onClick={() => window.open(attachUrl(a.id), "_blank")}
+                    onClick={() => window.open(resolveAttachmentImageSrc(a, ticket.id), "_blank")}
                     onError={(e) => {
                       e.target.style.opacity = 0.4;
                     }}

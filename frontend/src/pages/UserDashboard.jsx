@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import api, { ticketApi, bookingApi, API_BASE_URL } from "../services/api";
+import api, { ticketApi, bookingApi, API_BASE_URL, resolveAttachmentImageSrc } from "../services/api";
 import facilityService from "../services/facilityService";
 
 // ─── Theme Definitions ────────────────────────────────────────────────────────
@@ -813,8 +813,6 @@ function TicketDetailPanel({ ticket, onClose, onRefresh }) {
   const [editingId, setEditingId] = useState(null);
   const [editingText, setEditingText] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const attachUrl = (tid, aid) =>
-    `${API_BASE_URL}/api/tickets/${tid}/attachments/${aid}/download`;
   const token = localStorage.getItem("token");
 
   const handleAddComment = async () => {
@@ -908,10 +906,10 @@ function TicketDetailPanel({ ticket, onClose, onRefresh }) {
                 {ticket.attachments.map(a => (
                   <img key={a.id}
                     className="ud-attachment-img"
-                    src={attachUrl(ticket.id, a.id)}
+                    src={resolveAttachmentImageSrc(a, ticket.id)}
                     alt={a.originalFileName}
                     title={a.originalFileName}
-                    onClick={() => window.open(attachUrl(ticket.id, a.id), "_blank")}
+                    onClick={() => window.open(resolveAttachmentImageSrc(a, ticket.id), "_blank")}
                     onError={e => { e.target.style.display = "none"; }}
                     {...(token ? {} : {})}
                   />

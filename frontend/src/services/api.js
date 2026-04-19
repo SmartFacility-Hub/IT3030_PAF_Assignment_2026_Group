@@ -94,5 +94,18 @@ export const bookingApi = {
   cancel: (id) => api.delete(`/api/bookings/${id}`),
 };
 
+/** Image src for ticket attachments: uses Cloudinary HTTPS from API when present, else local download URL. */
+export function resolveAttachmentImageSrc(attachment, ticketId) {
+  const u = attachment?.downloadUrl;
+  if (u && (u.startsWith('http://') || u.startsWith('https://'))) {
+    return u;
+  }
+  const path =
+    u && u.startsWith('/')
+      ? u
+      : `/api/tickets/${ticketId}/attachments/${attachment?.id}/download`;
+  return `${API_BASE_URL}${path}`;
+}
+
 export default api;
 export { API_BASE_URL };
