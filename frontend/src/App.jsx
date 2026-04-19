@@ -13,6 +13,7 @@ import UnauthorizedPage from "./pages/UnauthorizedPage";
 import FacilitiesPage from "./pages/FacilitiesPage";
 import AdminUsersPage from "./pages/AdminUsersPage";
 import UserIncidentsPage from "./pages/UserIncidentsPage";
+import UserBookingsPage from "./pages/UserBookingsPage";
 
 function App() {
   return (
@@ -39,7 +40,7 @@ function App() {
           }>
             <Route index element={<UserDashboard />} />
             <Route path="incidents" element={<UserIncidentsPage />} />
-            {/* Add future user pages here */}
+            <Route path="bookings"  element={<UserBookingsPage />} />
             {/* <Route path="bookings"  element={<BookingsPage />} /> */}
             {/* <Route path="incidents" element={<UserIncidentsPage />} /> */}
           </Route>
