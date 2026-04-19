@@ -14,6 +14,7 @@ import FacilitiesPage from "./pages/FacilitiesPage";
 import AdminUsersPage from "./pages/AdminUsersPage";
 import UserIncidentsPage from "./pages/UserIncidentsPage";
 import UserBookingsPage from "./pages/UserBookingsPage";
+import AdminBookingsPage from "./pages/AdminBookingsPage";
 
 function App() {
   return (
@@ -55,6 +56,7 @@ function App() {
             <Route path="incidents"  element={<AdminIncidentsPage />} />
             <Route path="facilities" element={<FacilitiesPage />} />
             <Route path="users"      element={<AdminUsersPage />} />
+            <Route path="bookings"   element={<AdminBookingsPage />} />
           </Route>
 
         </Routes>
