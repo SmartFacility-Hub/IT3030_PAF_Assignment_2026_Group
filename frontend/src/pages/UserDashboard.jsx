@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import api, { ticketApi, bookingApi, API_BASE_URL } from "../services/api";
+import api, { ticketApi, bookingApi, API_BASE_URL, resolveAttachmentImageSrc } from "../services/api";
 import facilityService from "../services/facilityService";
 import NotificationBell from "../components/NotificationBell";
 
@@ -289,6 +289,25 @@ const styles = `
   .ud-textarea { resize: vertical; min-height: 80px; }
   .ud-select { cursor: pointer; }
   .ud-select option { background: var(--bg-surface); }
+  .ud-search-wrap { position: relative; }
+  .ud-search-list {
+    position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 25;
+    max-height: 180px; overflow-y: auto;
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); box-shadow: var(--shadow-card);
+  }
+  .ud-search-item {
+    width: 100%; border: none; background: transparent; cursor: pointer;
+    text-align: left; color: var(--text-secondary); font-family: var(--font-body);
+    font-size: 13px; padding: 10px 12px; transition: background 0.15s, color 0.15s;
+  }
+  .ud-search-item:hover {
+    background: var(--bg-elevated); color: var(--text-primary);
+  }
+  .ud-search-empty {
+    padding: 10px 12px; font-size: 12px; color: var(--text-muted);
+    font-family: var(--font-mono);
+  }
   .ud-file-input {
     display: none;
   }
@@ -620,13 +639,41 @@ function EditBookingModal({ booking, onClose, onSaved }) {
 function CreateTicketModal({ onClose, onCreated }) {
   const [form, setForm] = useState({
     resourceLocation: "", category: "IT_EQUIPMENT", description: "",
-    priority: "MEDIUM", contactDetails: "",
+    priority: "MEDIUM",
   });
+  const [locations, setLocations] = useState([]);
+  const [loadingLocations, setLoadingLocations] = useState(true);
+  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleField = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+  const locationQuery = form.resourceLocation.trim().toLowerCase();
+  const filteredLocations = locations
+    .filter(location => !locationQuery || location.toLowerCase().includes(locationQuery))
+    .slice(0, 8);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setLoadingLocations(true);
+        const res = await facilityService.getAll();
+        const uniqueLocations = [...new Set(
+          (res.data || [])
+            .map(f => f?.location?.trim())
+            .filter(Boolean)
+        )].sort((a, b) => a.localeCompare(b));
+        if (mounted) setLocations(uniqueLocations);
+      } catch (_) {
+        if (mounted) setLocations([]);
+      } finally {
+        if (mounted) setLoadingLocations(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   const handleFiles = e => {
     const picked = Array.from(e.target.files).slice(0, 3 - files.length);
@@ -664,9 +711,43 @@ function CreateTicketModal({ onClose, onCreated }) {
         <form onSubmit={handleSubmit}>
           <div className="ud-form-group">
             <label className="ud-label">Resource / Location *</label>
-            <input className="ud-input" name="resourceLocation" required
-              placeholder="e.g. Lab 3, Building A"
-              value={form.resourceLocation} onChange={handleField} />
+            <div className="ud-search-wrap">
+              <input
+                className="ud-input"
+                name="resourceLocation"
+                required
+                autoComplete="off"
+                placeholder={loadingLocations ? "Loading locations…" : "Search and select a location"}
+                value={form.resourceLocation}
+                onFocus={() => setShowLocationSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowLocationSuggestions(false), 120)}
+                onChange={(e) => {
+                  handleField(e);
+                  setShowLocationSuggestions(true);
+                }}
+              />
+              {showLocationSuggestions && !loadingLocations && (
+                <div className="ud-search-list">
+                  {filteredLocations.length > 0 ? (
+                    filteredLocations.map(location => (
+                      <button
+                        key={location}
+                        type="button"
+                        className="ud-search-item"
+                        onMouseDown={() => {
+                          setForm(f => ({ ...f, resourceLocation: location }));
+                          setShowLocationSuggestions(false);
+                        }}
+                      >
+                        {location}
+                      </button>
+                    ))
+                  ) : (
+                    <div className="ud-search-empty">No matching locations</div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div className="ud-form-group">
@@ -691,12 +772,6 @@ function CreateTicketModal({ onClose, onCreated }) {
             <textarea className="ud-textarea" name="description" required
               placeholder="Describe the issue clearly…"
               value={form.description} onChange={handleField} />
-          </div>
-          <div className="ud-form-group">
-            <label className="ud-label">Contact Details *</label>
-            <input className="ud-input" name="contactDetails" required
-              placeholder="e.g. your@email.lk or ext. 1234"
-              value={form.contactDetails} onChange={handleField} />
           </div>
           <div className="ud-form-group">
             <label className="ud-label">Image Attachments (up to 3)</label>
@@ -739,8 +814,6 @@ function TicketDetailPanel({ ticket, onClose, onRefresh }) {
   const [editingId, setEditingId] = useState(null);
   const [editingText, setEditingText] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const attachUrl = (tid, aid) =>
-    `${API_BASE_URL}/api/tickets/${tid}/attachments/${aid}/download`;
   const token = localStorage.getItem("token");
 
   const handleAddComment = async () => {
@@ -797,8 +870,8 @@ function TicketDetailPanel({ ticket, onClose, onRefresh }) {
             <div className="ud-detail-value">{ticket.description}</div>
           </div>
           <div className="ud-detail-field">
-            <div className="ud-detail-label">Contact</div>
-            <div className="ud-detail-value">{ticket.contactDetails}</div>
+            <div className="ud-detail-label">Created By</div>
+            <div className="ud-detail-value">{ticket.createdBy}</div>
           </div>
           {ticket.assignedTo && (
             <div className="ud-detail-field">
@@ -834,10 +907,10 @@ function TicketDetailPanel({ ticket, onClose, onRefresh }) {
                 {ticket.attachments.map(a => (
                   <img key={a.id}
                     className="ud-attachment-img"
-                    src={attachUrl(ticket.id, a.id)}
+                    src={resolveAttachmentImageSrc(a, ticket.id)}
                     alt={a.originalFileName}
                     title={a.originalFileName}
-                    onClick={() => window.open(attachUrl(ticket.id, a.id), "_blank")}
+                    onClick={() => window.open(resolveAttachmentImageSrc(a, ticket.id), "_blank")}
                     onError={e => { e.target.style.display = "none"; }}
                     {...(token ? {} : {})}
                   />

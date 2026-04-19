@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import NotificationBell from "./NotificationBell";
+import { ticketApi } from "../services/api";
 
 const themes = {
   dark: {
@@ -276,7 +277,7 @@ const navSections = [
     label: "Operations",
     items: [
       { icon: "📅", label: "Bookings",     id: "bookings",    route: "/admin/bookings",    badge: "4" },
-      { icon: "🔧", label: "Incidents",    id: "incidents",   route: "/admin/incidents",   badge: "9", badgeRed: true },
+      { icon: "🔧", label: "Incidents",    id: "incidents",   route: "/admin/incidents",   badgeRed: true },
       { icon: "👷", label: "Technicians",  id: "technicians", route: "/admin/technicians" },
     ],
   },
@@ -295,9 +296,26 @@ export default function AdminLayout() {
   const navigate         = useNavigate();
   const location         = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [incidentBadge, setIncidentBadge] = useState(null);
   const [theme, setTheme] = useState(
     window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light"
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await ticketApi.fetchAll();
+        if (cancelled) return;
+        const list = res.data || [];
+        const n = list.filter((t) => t.status === "OPEN" || t.status === "IN_PROGRESS").length;
+        setIncidentBadge(String(n));
+      } catch {
+        if (!cancelled) setIncidentBadge("—");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [location.pathname]);
 
   // Apply theme tokens
   const applyTheme = (t) => {
@@ -351,9 +369,9 @@ export default function AdminLayout() {
                 >
                   <span className="nav-item-icon">{item.icon}</span>
                   <span className="nav-item-label">{item.label}</span>
-                  {item.badge && (
+                  {(item.id === "incidents" ? incidentBadge != null : item.badge) && (
                     <span className={`nav-badge${item.badgeRed ? " red" : ""}`}>
-                      {item.badge}
+                      {item.id === "incidents" ? incidentBadge : item.badge}
                     </span>
                   )}
                 </div>

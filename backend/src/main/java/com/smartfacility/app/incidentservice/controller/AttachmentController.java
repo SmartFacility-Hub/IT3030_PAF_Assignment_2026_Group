@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.smartfacility.app.incidentservice.dto.response.AttachmentResponseDTO;
+import com.smartfacility.app.incidentservice.service.AttachmentDownload;
 import com.smartfacility.app.incidentservice.service.AttachmentService;
 
 import lombok.RequiredArgsConstructor;
@@ -54,15 +55,24 @@ public class AttachmentController {
             @PathVariable Long ticketId,
             @PathVariable Long attachmentId) {
 
-        Resource resource =
+        AttachmentDownload download =
                 attachmentService.downloadAttachment(ticketId, attachmentId);
+
+        MediaType mediaType = MediaType.IMAGE_JPEG;
+        try {
+            if (download.contentType() != null && !download.contentType().isBlank()) {
+                mediaType = MediaType.parseMediaType(download.contentType());
+            }
+        } catch (Exception ignored) {
+            // keep default image/jpeg
+        }
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         "inline; filename=\"" +
-                        resource.getFilename() + "\"")
-                .contentType(MediaType.IMAGE_JPEG)
-                .body(resource);
+                        download.resource().getFilename() + "\"")
+                .contentType(mediaType)
+                .body(download.resource());
     }
     // DELETE /api/tickets/{ticketId}/attachments/{attachmentId}
     @DeleteMapping("/{attachmentId}")

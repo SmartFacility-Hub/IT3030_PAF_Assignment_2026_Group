@@ -21,7 +21,6 @@ public class TicketResponseDTO {
     private String description;
     private Priority priority;
     private TicketStatus status;
-    private String contactDetails;
     private String createdBy;
     private String assignedTo;
     private String resolutionNotes;

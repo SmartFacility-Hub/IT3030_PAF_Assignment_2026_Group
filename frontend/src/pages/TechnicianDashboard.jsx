@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { ticketApi, API_BASE_URL } from "../services/api";
 import NotificationBell from "../components/NotificationBell";
+import { ticketApi, resolveAttachmentImageSrc } from "../services/api";
 
 // ─── Theme Definitions ────────────────────────────────────────────────────────
 const themes = {
@@ -303,12 +304,17 @@ function fmtFull(iso) {
 }
 
 // ─── Update Status Modal ──────────────────────────────────────────────────────
+// Technicians cannot reject; admin-only. From active work they may resolve only (admin closes later).
 const VALID_NEXT = {
-  OPEN: ["IN_PROGRESS", "REJECTED"],
-  IN_PROGRESS: ["RESOLVED", "REJECTED"],
-  RESOLVED: ["CLOSED"],
+  OPEN: [],
+  IN_PROGRESS: ["RESOLVED"],
+  RESOLVED: [],
   CLOSED: [], REJECTED: [],
 };
+
+function technicianCanUpdateStatus(status) {
+  return (VALID_NEXT[status] || []).length > 0;
+}
 
 function UpdateStatusModal({ ticket, onClose, onUpdated }) {
   const nextOptions = VALID_NEXT[ticket.status] || [];
@@ -339,7 +345,11 @@ function UpdateStatusModal({ ticket, onClose, onUpdated }) {
         {error && <div className="td-error">{error}</div>}
         {nextOptions.length === 0 ? (
           <p style={{ fontSize: 13, color: "var(--text-muted)" }}>
-            This ticket is in a terminal state ({ticket.status}) and cannot be updated further.
+            {ticket.status === "OPEN"
+              ? "This ticket is still open. After an administrator assigns you and the ticket is in progress, you can mark it resolved here."
+              : ticket.status === "RESOLVED"
+              ? "This ticket is resolved. Further status changes (for example closing) are done by an administrator."
+              : `This ticket is in a terminal state (${ticket.status}) and cannot be updated further.`}
           </p>
         ) : (
           <form onSubmit={handleSubmit}>
@@ -446,8 +456,8 @@ function TicketDetailPanel({ ticket, onClose }) {
             <div className="td-detail-value">{ticket.category?.replace("_"," ")}</div>
           </div>
           <div className="td-detail-field">
-            <div className="td-detail-label">Contact</div>
-            <div className="td-detail-value">{ticket.contactDetails}</div>
+            <div className="td-detail-label">Created By</div>
+            <div className="td-detail-value">{ticket.createdBy}</div>
           </div>
           {ticket.resolutionNotes && (
             <div className="td-detail-field">
@@ -475,9 +485,9 @@ function TicketDetailPanel({ ticket, onClose }) {
               <div className="td-attachments">
                 {ticket.attachments.map(a => (
                   <img key={a.id} className="td-attach-img"
-                    src={`${API_BASE_URL}/api/tickets/${ticket.id}/attachments/${a.id}/download`}
+                    src={resolveAttachmentImageSrc(a, ticket.id)}
                     alt={a.originalFileName} title={a.originalFileName}
-                    onClick={() => window.open(`${API_BASE_URL}/api/tickets/${ticket.id}/attachments/${a.id}/download`, "_blank")}
+                    onClick={() => window.open(resolveAttachmentImageSrc(a, ticket.id), "_blank")}
                     onError={e => { e.target.style.display = "none"; }} />
                 ))}
               </div>
@@ -666,7 +676,7 @@ export default function TechnicianDashboard() {
                     <td onClick={e => e.stopPropagation()}>
                       <button className="td-btn-primary" style={{ fontSize:12, padding:"5px 12px" }}
                         onClick={() => setUpdating(t)}
-                        disabled={t.status === "CLOSED" || t.status === "REJECTED"}>
+                        disabled={!technicianCanUpdateStatus(t.status)}>
                         Update
                       </button>
                     </td>

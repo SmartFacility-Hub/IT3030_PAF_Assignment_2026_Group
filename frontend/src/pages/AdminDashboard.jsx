@@ -1,7 +1,14 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
 import api, { ticketApi } from "../services/api";
+import {
+  STATUS_BG,
+  STATUS_CLR,
+  STATUS_DOT,
+  STATUS_LABEL,
+  PRIO_BG,
+  PRIO_CLR,
+} from "../components/admin/AdminTicketModals";
 
 // ─── Page-specific styles only (no sidebar/topbar/themes) ─────────────────────
 const styles = `
@@ -258,76 +265,6 @@ const styles = `
     .content-grid-3 { grid-template-columns: 1fr; }
     .main-content { padding: 20px 16px; }
   }
-
-  /* ── Admin Modals ── */
-  .adm-modal-overlay {
-    position: fixed; inset: 0; z-index: 300;
-    background: rgba(0,0,0,0.55); backdrop-filter: blur(4px);
-    display: flex; align-items: center; justify-content: center; padding: 24px;
-  }
-  .adm-modal {
-    background: var(--bg-surface); border: 1px solid var(--border);
-    border-radius: var(--radius-lg); padding: 28px;
-    width: 100%; max-width: 460px; box-shadow: var(--shadow-card);
-  }
-  .adm-modal-title {
-    font-family: var(--font-display); font-size: 17px; font-weight: 700;
-    color: var(--text-primary); margin-bottom: 20px;
-  }
-  .adm-form-group { margin-bottom: 16px; }
-  .adm-label {
-    display: block; font-family: var(--font-mono); font-size: 10px; font-weight: 500;
-    color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;
-  }
-  .adm-select, .adm-textarea {
-    width: 100%; padding: 10px 14px;
-    background: var(--bg-elevated); border: 1px solid var(--border);
-    border-radius: var(--radius-sm); color: var(--text-primary);
-    font-family: var(--font-body); font-size: 13px; outline: none;
-    transition: border-color 0.2s;
-  }
-  .adm-select:focus, .adm-textarea:focus { border-color: var(--accent-border); }
-  .adm-textarea { resize: vertical; min-height: 72px; }
-  .adm-select option { background: var(--bg-surface); }
-  .adm-modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
-  .adm-error {
-    padding: 10px 14px; background: var(--status-red-bg); border: 1px solid var(--status-red);
-    border-radius: var(--radius-sm); color: var(--status-red); font-size: 13px; margin-bottom: 14px;
-  }
-  .adm-row-actions { display: flex; gap: 6px; }
-  .adm-action-btn {
-    padding: 4px 10px; border-radius: var(--radius-sm);
-    font-family: var(--font-mono); font-size: 10px; cursor: pointer;
-    border: 1px solid var(--border); background: transparent;
-    color: var(--text-muted); transition: all 0.15s;
-  }
-  .adm-action-btn:hover { border-color: var(--accent-border); color: var(--accent); }
-  .adm-action-btn.assign:hover { border-color: var(--status-blue, #60a5fa); color: var(--status-blue, #60a5fa); }
-
-  /* Panel Styles */
-  .adm-panel-overlay { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.4); backdrop-filter: blur(2px); }
-  .adm-panel {
-    position: fixed; top: 0; right: 0; bottom: 0; z-index: 1001; width: 440px; max-width: 90vw;
-    background: var(--bg-surface); border-left: 1px solid var(--border); display: flex; flex-direction: column;
-    box-shadow: -10px 0 40px rgba(0,0,0,0.3); animation: admSlideIn 0.3s ease;
-  }
-  @keyframes admSlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
-  .adm-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid var(--border); }
-  .adm-panel-title { font-family: var(--font-display); font-size: 16px; font-weight: 700; color: var(--text-primary); }
-  .adm-panel-close { background: none; border: none; font-size: 18px; color: var(--text-muted); cursor: pointer; }
-  .adm-panel-body { flex: 1; overflow-y: auto; padding: 24px; }
-  .adm-detail-field { margin-bottom: 18px; }
-  .adm-detail-label { font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; }
-  .adm-detail-value { font-size: 14px; color: var(--text-secondary); line-height: 1.5; }
-  .adm-divider { border: 0; border-top: 1px solid var(--border); margin: 24px 0; }
-  .adm-comment-item { padding: 12px 0; border-bottom: 1px solid var(--border); }
-  .adm-comment-meta { display: flex; justify-content: space-between; margin-bottom: 6px; }
-  .adm-comment-author { font-size: 11px; font-weight: 700; color: var(--text-primary); }
-  .adm-comment-time { font-size: 10px; color: var(--text-muted); }
-  .adm-comment-text { font-size: 13px; color: var(--text-secondary); line-height: 1.4; white-space: pre-wrap; }
-  .adm-comment-actions { display: flex; gap: 12px; margin-top: 8px; }
-  .adm-add-comment { margin-top: 24px; }
-  .adm-textarea { width: 100%; border: 1px solid var(--border); border-radius: 4px; padding: 10px; background: var(--bg-elevated); color: var(--text-primary); font-size: 13px; }
 `;
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
@@ -367,14 +304,8 @@ const recentBookings = [
   { id: "BK-1038", resource: "Auditorium",      user: "Dr. K. Mendis",  date: "8 Apr",  time: "09:00–13:00", status: "rejected" },
 ];
 
-// ─── Status helpers ───────────────────────────────────────────────────────────
-const STATUS_DOT   = { OPEN:"var(--status-red)", IN_PROGRESS:"var(--status-amber)", RESOLVED:"var(--status-green)", CLOSED:"var(--text-muted)", REJECTED:"var(--status-red)" };
-const STATUS_BG    = { OPEN:"var(--status-red-bg)", IN_PROGRESS:"var(--status-amber-bg)", RESOLVED:"var(--status-green-bg)", CLOSED:"var(--bg-elevated)", REJECTED:"var(--status-red-bg)" };
-const STATUS_CLR   = { OPEN:"var(--status-red)", IN_PROGRESS:"var(--status-amber)", RESOLVED:"var(--status-green)", CLOSED:"var(--text-muted)", REJECTED:"var(--status-red)" };
-const STATUS_LABEL = { OPEN:"Open", IN_PROGRESS:"In Progress", RESOLVED:"Resolved", CLOSED:"Closed", REJECTED:"Rejected" };
-const PRIO_BG      = { HIGH:"var(--status-red-bg)", CRITICAL:"var(--status-red-bg)", MEDIUM:"var(--status-amber-bg)", LOW:"var(--bg-elevated)" };
-const PRIO_CLR     = { HIGH:"var(--status-red)", CRITICAL:"var(--status-red)", MEDIUM:"var(--status-amber)", LOW:"var(--text-muted)" };
-const VALID_NEXT   = { OPEN:["IN_PROGRESS","REJECTED"], IN_PROGRESS:["RESOLVED","REJECTED"], RESOLVED:["CLOSED"], CLOSED:[], REJECTED:[] };
+// ─── Allowed ticket status transitions ─────────────────────────────────────────
+const VALID_NEXT = { OPEN:["IN_PROGRESS","REJECTED"], IN_PROGRESS:["RESOLVED","REJECTED"], RESOLVED:["CLOSED"], CLOSED:[], REJECTED:[] };
 
 // ─── Assign Technician Modal ──────────────────────────────────────────────────
 function AssignModal({ ticket, technicians, onClose, onDone }) {
@@ -501,12 +432,7 @@ function StatusModal({ ticket, onClose, onDone }) {
   );
 }
 
-const resourceUtilisation = [
-  { name: "Lecture Halls", pct: 82, color: "#f5a623" },
-  { name: "Computer Labs",  pct: 67, color: "#60a5fa" },
-  { name: "Meeting Rooms",  pct: 45, color: "#a78bfa" },
-  { name: "Equipment",      pct: 38, color: "#34d399" },
-];
+
 
 const healthItems = [
   { name: "API Server",    val: "12 ms", status: "Healthy",  color: "#4ade80" },
@@ -565,133 +491,6 @@ function Donut({ segments }) {
   );
 }
 
-// ─── Ticket Detail Panel ──────────────────────────────────────────────────────
-function TicketDetailPanel({ ticket, onClose, onRefresh }) {
-  const { user } = useAuth();
-  const [comments, setComments] = useState(ticket.comments || []);
-  const [newComment, setNewComment] = useState("");
-  const [editingId, setEditingId] = useState(null);
-  const [editingText, setEditingText] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
-  const handleAddComment = async () => {
-    if (!newComment.trim()) return;
-    setSubmitting(true);
-    try {
-      const res = await ticketApi.addComment(ticket.id, newComment.trim());
-      setComments(c => [...c, res.data]);
-      setNewComment("");
-    } catch (_) {} finally { setSubmitting(false); }
-  };
-
-  const handleEditSave = async (commentId) => {
-    try {
-      const res = await ticketApi.editComment(ticket.id, commentId, editingText);
-      setComments(c => c.map(x => x.id === commentId ? res.data : x));
-      setEditingId(null);
-    } catch (_) {}
-  };
-
-  const handleDelete = async (commentId) => {
-    if (!window.confirm("Delete this comment?")) return;
-    try {
-      await ticketApi.deleteComment(ticket.id, commentId);
-      setComments(c => c.filter(x => x.id !== commentId));
-    } catch (_) {}
-  };
-
-  const fmt = d => d ? new Date(d).toLocaleString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '—';
-
-  return (
-    <>
-      <div className="adm-panel-overlay" onClick={onClose} />
-      <aside className="adm-panel">
-        <div className="adm-panel-header">
-          <div className="adm-panel-title">🎫 Incident Details — #{ticket.id}</div>
-          <button className="adm-panel-close" onClick={onClose}>✕</button>
-        </div>
-        <div className="adm-panel-body">
-          <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
-            <span className="badge" style={{ background: STATUS_BG[ticket.status], color: STATUS_CLR[ticket.status] }}>
-              {STATUS_LABEL[ticket.status]}
-            </span>
-            <span className="badge" style={{ background: PRIO_BG[ticket.priority], color: PRIO_CLR[ticket.priority] }}>
-              {ticket.priority}
-            </span>
-          </div>
-
-          <div className="adm-detail-field">
-            <div className="adm-detail-label">Location</div>
-            <div className="adm-detail-value"><strong>{ticket.resourceLocation}</strong></div>
-          </div>
-          <div className="adm-detail-field">
-            <div className="adm-detail-label">Description</div>
-            <div className="adm-detail-value">{ticket.description}</div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
-             <div className="adm-detail-field" style={{ margin: 0 }}>
-               <div className="adm-detail-label">Contact</div>
-               <div className="adm-detail-value">{ticket.contactDetails}</div>
-             </div>
-             <div className="adm-detail-field" style={{ margin: 0 }}>
-               <div className="adm-detail-label">Assigned</div>
-               <div className="adm-detail-value">{ticket.assignedTo || "None"}</div>
-             </div>
-          </div>
-
-          <hr className="adm-divider" />
-          <div className="adm-detail-label" style={{ marginBottom: 12 }}>Comments ({comments.length})</div>
-
-          <div className="adm-comment-list">
-            {comments.map(c => (
-              <div key={c.id} className="adm-comment-item">
-                <div className="adm-comment-meta">
-                  <span className="adm-comment-author">{c.createdBy}</span>
-                  <span className="adm-comment-time">{fmt(c.createdAt)}</span>
-                </div>
-                {editingId === c.id ? (
-                  <>
-                    <textarea className="adm-textarea" style={{ minHeight: 60 }}
-                      value={editingText} onChange={e => setEditingText(e.target.value)} />
-                    <div className="adm-comment-actions">
-                      <button className="adm-action-btn" onClick={() => handleEditSave(c.id)}>Save</button>
-                      <button className="adm-action-btn" onClick={() => setEditingId(null)}>Cancel</button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="adm-comment-text">{c.content}</div>
-                    <div className="adm-comment-actions">
-                      {c.isOwner && (
-                        <button className="adm-action-btn"
-                          onClick={() => { setEditingId(c.id); setEditingText(c.content); }}>Edit</button>
-                      )}
-                      {(c.isOwner || user?.roles?.some(r => r === 'ROLE_ADMIN')) && (
-                        <button className="adm-action-btn" style={{ color: 'var(--status-red)' }}
-                          onClick={() => handleDelete(c.id)}>Delete</button>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-
-          <div className="adm-add-comment">
-            <textarea className="adm-textarea" placeholder="Add a comment…"
-              value={newComment} onChange={e => setNewComment(e.target.value)} />
-            <button className="btn-primary" style={{ marginTop: 8, width: '100%' }}
-              onClick={handleAddComment} disabled={submitting || !newComment.trim()}>
-              {submitting ? "Posting…" : "Post Comment"}
-            </button>
-          </div>
-        </div>
-      </aside>
-    </>
-  );
-}
-
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -700,12 +499,25 @@ export default function AdminDashboard() {
   const [usersLoading, setUsersLoading] = useState(false);
   const [tickets, setTickets] = useState([]);
   const [ticketsLoading, setTicketsLoading] = useState(false);
+  const [facilities, setFacilities] = useState([]);
    const [assigning, setAssigning] = useState(null);  // ticket to assign
   const [statusUpdating, setStatusUpdating] = useState(null); // ticket to update status
   const [selectedTicket, setSelectedTicket] = useState(null);
 
   const kpi = useCounter({ bookings: 1247, assets: 382, uptime: 99 });
   const openCount = tickets.filter(t => t.status === "OPEN" || t.status === "IN_PROGRESS").length;
+
+  const recentOpenIncidents = useMemo(() => {
+    const sorted = [...tickets].sort((a, b) => {
+      const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return tb - ta;
+    });
+    return sorted.slice(0, 8);
+  }, [tickets]);
+
+  const fmtShort = (d) =>
+    d ? new Date(d).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
 
   const handleApprove = (id) => setApprovals(a => a.filter(x => x.id !== id));
   const handleReject  = (id) => setApprovals(a => a.filter(x => x.id !== id));
@@ -722,6 +534,15 @@ export default function AdminDashboard() {
     }
   }, []);
 
+  const fetchFacilities = useCallback(async () => {
+    try {
+      const res = await api.get('/api/facilities');
+      setFacilities(res.data);
+    } catch (err) {
+      console.error('Failed to fetch facilities:', err);
+    }
+  }, []);
+
   // Fetch all tickets
   const fetchTickets = useCallback(async () => {
     setTicketsLoading(true);
@@ -735,7 +556,7 @@ export default function AdminDashboard() {
     }
   }, []);
 
-  useEffect(() => { fetchUsers(); fetchTickets(); }, [fetchUsers, fetchTickets]);
+  useEffect(() => { fetchUsers(); fetchTickets(); fetchFacilities(); }, [fetchUsers, fetchTickets, fetchFacilities]);
 
   const handleRoleChange = async (userId, newRoles) => {
     try {
@@ -773,7 +594,7 @@ export default function AdminDashboard() {
         <div className="kpi-grid">
           {[
             { icon: "📅", label: "Total Bookings",    value: kpi.bookings.toLocaleString() + "+", change: "+12%",    up: true,    sub: "This semester" },
-            { icon: "🖥️", label: "Assets Tracked",   value: kpi.assets,                          change: "+8 today", up: true,    sub: "Active inventory" },
+            { icon: "🏛️", label: "Total Resources",  value: facilities.length || "—",                         change: "+8 today", up: true,    sub: "Active inventory" },
             { icon: "🔧", label: "Open Incidents",    value: ticketsLoading ? "…" : openCount,    change: "Live",     up: null,    sub: "Active tickets" },
             { icon: "⚡",  label: "Platform Uptime",  value: kpi.uptime + "%",                    change: "Stable",   up: null,    sub: "Last 30 days" },
           ].map((k, i) => (
@@ -913,46 +734,78 @@ export default function AdminDashboard() {
         <div className="card">
           <div className="card-header">
             <div>
-              <div className="card-title"><span className="card-title-icon">📐</span> Resource Utilisation</div>
-              <div className="card-subtitle">This week</div>
+              <div className="card-title"><span className="card-title-icon">📐</span> Resource Breakdown</div>
+              <div className="card-subtitle">By type — live from database</div>
             </div>
           </div>
-          <div className="donut-wrap">
-            <Donut segments={[
-              { value: 34, color: "#f5a623" },
-              { value: 28, color: "#60a5fa" },
-              { value: 18, color: "#a78bfa" },
-              { value: 12, color: "#34d399" },
-            ]} />
-          </div>
-          <div className="donut-legend">
-            {resourceUtilisation.map(r => (
-              <div className="donut-legend-row" key={r.name}>
-                <div className="legend-dot" style={{ width: 8, height: 8, borderRadius: "50%", background: r.color, flexShrink: 0 }} />
-                <span style={{ fontSize: 12, color: "var(--text-secondary)", flex: 1 }}>{r.name}</span>
-                <div className="donut-legend-bar-wrap">
-                  <div className="donut-legend-bar" style={{ width: `${r.pct}%`, background: r.color }} />
+          {(() => {
+            // ── Compute counts per type from live facilities data ──
+            const typeConfig = [
+              { key: "LECTURE_HALL", label: "Lecture Halls", color: "#f5a623" },
+              { key: "LAB",          label: "Labs",          color: "#60a5fa" },
+              { key: "MEETING_ROOM", label: "Meeting Rooms", color: "#a78bfa" },
+              { key: "EQUIPMENT",    label: "Equipment",     color: "#34d399" },
+            ];
+
+            const counts = typeConfig.map(t => ({
+              ...t,
+              count: facilities.filter(f => f.type === t.key).length,
+            }));
+
+            const total = counts.reduce((sum, t) => sum + t.count, 0) || 1;
+
+            const donutSegments = counts
+              .filter(t => t.count > 0)
+              .map(t => ({ value: t.count, color: t.color }));
+
+            return (
+              <>
+                <div className="donut-wrap">
+                  {total === 1 && facilities.length === 0 ? (
+                    <div style={{ padding: "20px", textAlign: "center", color: "var(--text-muted)", fontFamily: "var(--font-mono)", fontSize: 12 }}>
+                      No resources yet
+                    </div>
+                  ) : (
+                    <Donut segments={donutSegments.length > 0 ? donutSegments : [{ value: 1, color: "var(--bg-elevated)" }]} />
+                  )}
                 </div>
-                <div className="donut-legend-val">{r.pct}%</div>
-              </div>
-            ))}
-          </div>
+                <div className="donut-legend">
+                  {counts.map(r => (
+                    <div className="donut-legend-row" key={r.key}>
+                      <div className="legend-dot" style={{ width: 8, height: 8, borderRadius: "50%", background: r.color, flexShrink: 0 }} />
+                      <span style={{ fontSize: 12, color: "var(--text-secondary)", flex: 1 }}>{r.label}</span>
+                      <div className="donut-legend-bar-wrap">
+                        <div className="donut-legend-bar" style={{
+                          width: `${Math.round((r.count / (facilities.length || 1)) * 100)}%`,
+                          background: r.color
+                        }} />
+                      </div>
+                      <div className="donut-legend-val">{r.count}</div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            );
+          })()}
         </div>
 
-          {/* Open Incidents Table — live from API */}
+          {/* Open Incidents — recently added (compact; full management on Incidents page) */}
           <div className="card" style={{ gridColumn: "span 2" }}>
             <div className="card-header">
               <div>
                 <div className="card-title"><span className="card-title-icon">🔧</span> Open Incidents</div>
-                <div className="card-subtitle">Active maintenance tickets</div>
+                <div className="card-subtitle">Recently reported tickets (newest first)</div>
               </div>
-              <button className="card-action" onClick={fetchTickets}>Refresh →</button>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <button type="button" className="card-action" onClick={() => navigate("/admin/incidents")}>Manage all →</button>
+                <button type="button" className="card-action" onClick={fetchTickets}>Refresh →</button>
+              </div>
             </div>
             <div className="table-wrap">
               {ticketsLoading ? (
                 <div style={{ padding:"24px", textAlign:"center", color:"var(--text-muted)", fontFamily:"var(--font-mono)", fontSize:12 }}>Loading…</div>
-              ) : tickets.length === 0 ? (
-                <div style={{ padding:"24px", textAlign:"center", color:"var(--text-muted)", fontFamily:"var(--font-mono)", fontSize:12 }}>✅ No open tickets.</div>
+              ) : recentOpenIncidents.length === 0 ? (
+                <div style={{ padding:"24px", textAlign:"center", color:"var(--text-muted)", fontFamily:"var(--font-mono)", fontSize:12 }}>No tickets yet.</div>
               ) : (
                 <table>
                   <thead>
@@ -961,15 +814,12 @@ export default function AdminDashboard() {
                       <th>Location</th>
                       <th>Priority</th>
                       <th>Status</th>
-                      <th>Assigned To</th>
-                      <th>Actions</th>
+                      <th>Reported</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {tickets.map(t => (
-                      <tr key={t.id} onClick={(e) => {
-                        if (e.target.tagName !== 'BUTTON') setSelectedTicket(t);
-                      }} style={{ cursor: 'pointer' }}>
+                    {recentOpenIncidents.map(t => (
+                      <tr key={t.id}>
                         <td style={{ fontFamily:"var(--font-mono)", fontSize:12 }}>#{t.id}</td>
                         <td>{t.resourceLocation}</td>
                         <td>
@@ -983,18 +833,7 @@ export default function AdminDashboard() {
                             {STATUS_LABEL[t.status]}
                           </span>
                         </td>
-                        <td style={{ fontSize:12, color: t.assignedTo ? "var(--text-secondary)" : "var(--status-red)" }}>
-                          {t.assignedTo || "Unassigned"}
-                        </td>
-                        <td>
-                          <div className="adm-row-actions">
-                            <button className="adm-action-btn assign"
-                              onClick={(e) => { e.stopPropagation(); setAssigning(t); }}>Assign</button>
-                            <button className="adm-action-btn"
-                              onClick={(e) => { e.stopPropagation(); setStatusUpdating(t); }}
-                              disabled={t.status === "CLOSED" || t.status === "REJECTED"}>Status</button>
-                          </div>
-                        </td>
+                        <td style={{ fontFamily:"var(--font-mono)", fontSize:11, color:"var(--text-muted)" }}>{fmtShort(t.createdAt)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1149,39 +988,6 @@ export default function AdminDashboard() {
       </div>
 
       </div>
-
-      {/* Assign Technician Modal */}
-      {assigning && (
-        <AssignModal
-          ticket={assigning}
-          technicians={allUsers.filter(u => {
-            const hasTechRole = u.roles?.some(r =>
-              typeof r === 'string' && r.toUpperCase().includes('TECHNICIAN')
-            );
-            return hasTechRole;
-          })}
-          onClose={() => setAssigning(null)}
-          onDone={() => { setAssigning(null); fetchTickets(); }}
-        />
-      )}
-
-      {/* Update Status Modal */}
-      {statusUpdating && (
-        <StatusModal
-          ticket={statusUpdating}
-          onClose={() => setStatusUpdating(null)}
-          onDone={() => { setStatusUpdating(null); fetchTickets(); }}
-        />
-      )}
-
-      {/* Ticket Detail Panel */}
-      {selectedTicket && (
-        <TicketDetailPanel
-          ticket={selectedTicket}
-          onClose={() => setSelectedTicket(null)}
-          onRefresh={fetchTickets}
-        />
-      )}
     </>
   );
 }

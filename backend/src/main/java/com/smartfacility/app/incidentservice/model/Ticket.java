@@ -44,9 +44,6 @@ public class Ticket {
     @Column(nullable = false)
     private TicketStatus status;
 
-    @Column(nullable = false)
-    private String contactDetails;
-
     // Who created this ticket (userId from JWT)
     @Column(nullable = false)
     private String createdBy;
