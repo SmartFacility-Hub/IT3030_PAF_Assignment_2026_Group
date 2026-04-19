@@ -135,7 +135,7 @@ function CreateUserModal({ onClose, onCreated }) {
   const validate = () => {
     if (!form.name.trim()) return "Name is required.";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) return "Invalid email address.";
-    if (form.password.length < 6) return "Password must be at least 6 characters.";
+    if (!/^(?=.*[0-9])(?=.*[^a-zA-Z0-9\\s]).{8,}$/.test(form.password)) return "Password must be at least 8 characters long, and include at least one number and one special character.";
     return null;
   };
 
@@ -195,7 +195,7 @@ function EditUserModal({ user, onClose, onSaved }) {
   const validate = () => {
     if (!form.name.trim()) return "Name is required.";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) return "Invalid email address.";
-    if (form.password && form.password.length < 6) return "Password must be at least 6 characters.";
+    if (form.password && !/^(?=.*[0-9])(?=.*[^a-zA-Z0-9\\s]).{8,}$/.test(form.password)) return "Password must be at least 8 characters long, and include at least one number and one special character.";
     if (roles.length === 0) return "At least one role must be selected.";
     return null;
   };

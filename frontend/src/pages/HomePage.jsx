@@ -1166,8 +1166,8 @@ export default function HomePage() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(authForm.email)) {
       return setAuthError('Invalid email address.');
     }
-    if (authForm.password.length < 6) {
-      return setAuthError('Password must be at least 6 characters.');
+    if (!/^(?=.*[0-9])(?=.*[^a-zA-Z0-9\\s]).{8,}$/.test(authForm.password)) {
+      return setAuthError('Password must be at least 8 characters long, and include at least one number and one special character.');
     }
     if (authMode === 'register' && (!authForm.name || !authForm.name.trim())) {
       return setAuthError('Name is required.');
