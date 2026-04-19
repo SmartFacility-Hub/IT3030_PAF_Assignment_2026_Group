@@ -169,6 +169,24 @@ export default function AdminIncidentsPage() {
     }
   };
 
+  const handleRemoveTicket = async (t) => {
+    if (t.status !== "CLOSED" && t.status !== "REJECTED") return;
+    if (
+      !window.confirm(
+        `Permanently delete ticket #${t.id} (${t.status.toLowerCase().replace("_", " ")})? This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    try {
+      await ticketApi.delete(t.id);
+      if (selectedTicket?.id === t.id) setSelectedTicket(null);
+      await fetchTickets();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   return (
     <div className="inc-page fade-in">
       <style dangerouslySetInnerHTML={{ __html: adminTicketModalStyles + pageStyles }} />
@@ -292,6 +310,15 @@ export default function AdminIncidentsPage() {
                         >
                           Status
                         </button>
+                        {(t.status === "CLOSED" || t.status === "REJECTED") && (
+                          <button
+                            type="button"
+                            className="adm-action-btn danger"
+                            onClick={() => handleRemoveTicket(t)}
+                          >
+                            Remove
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -330,6 +357,7 @@ export default function AdminIncidentsPage() {
           ticket={selectedTicket}
           onClose={() => setSelectedTicket(null)}
           onRefresh={fetchTickets}
+          onTicketDeleted={() => fetchTickets()}
         />
       )}
     </div>

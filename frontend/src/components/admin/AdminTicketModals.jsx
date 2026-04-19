@@ -110,6 +110,16 @@ export const adminTicketModalStyles = `
   }
   .adm-action-btn:hover { border-color: var(--accent-border); color: var(--accent); }
   .adm-action-btn.assign:hover { border-color: var(--status-blue, #60a5fa); color: var(--status-blue, #60a5fa); }
+  .adm-action-btn.danger {
+    border-color: rgba(248,113,113,0.45);
+    color: var(--status-red, #f87171);
+    background: var(--status-red-bg, rgba(248,113,113,0.12));
+  }
+  .adm-action-btn.danger:hover {
+    border-color: var(--status-red, #f87171);
+    color: #fff;
+    background: var(--status-red, #dc2626);
+  }
   .adm-panel-overlay { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.4); backdrop-filter: blur(2px); }
   .adm-panel {
     position: fixed; top: 0; right: 0; bottom: 0; z-index: 1001; width: 440px; max-width: 90vw;
@@ -290,7 +300,7 @@ export function StatusModal({ ticket, onClose, onDone }) {
   );
 }
 
-export function TicketDetailPanel({ ticket, onClose, onRefresh }) {
+export function TicketDetailPanel({ ticket, onClose, onRefresh, onTicketDeleted }) {
   const { user } = useAuth();
   const [comments, setComments] = useState(ticket.comments || []);
   const [editingId, setEditingId] = useState(null);
@@ -316,6 +326,25 @@ export function TicketDetailPanel({ ticket, onClose, onRefresh }) {
 
   const fmt = (d) =>
     d ? new Date(d).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
+
+  const canRemoveTicket =
+    user?.roles?.some((r) => r === "ROLE_ADMIN") && (ticket.status === "CLOSED" || ticket.status === "REJECTED");
+
+  const handleRemoveTicket = async () => {
+    if (!canRemoveTicket) return;
+    if (
+      !window.confirm(
+        `Permanently delete ticket #${ticket.id} from the database? This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    try {
+      await ticketApi.delete(ticket.id);
+      onTicketDeleted?.(ticket.id);
+      onClose();
+    } catch (_) {}
+  };
 
   return (
     <>
@@ -451,6 +480,17 @@ export function TicketDetailPanel({ ticket, onClose, onRefresh }) {
               </div>
             ))}
           </div>
+
+          {canRemoveTicket && (
+            <div style={{ marginTop: 24, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
+              <button type="button" className="adm-action-btn danger" onClick={handleRemoveTicket}>
+                Remove from database
+              </button>
+              <p className="adm-detail-value" style={{ fontSize: 11, marginTop: 8, color: "var(--text-muted)" }}>
+                Permanently deletes this closed or rejected ticket and its comments and image records.
+              </p>
+            </div>
+          )}
         </div>
       </aside>
     </>
