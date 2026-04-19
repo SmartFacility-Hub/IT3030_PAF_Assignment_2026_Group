@@ -40,7 +40,7 @@ function App() {
             <ProtectedRoute requiredRole="ROLE_ADMIN">
               <AdminLayout />
             </ProtectedRoute>
-          }>
+            }>
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/analytics" element={<AdminDashboard />} />
             <Route path="/admin/facilities" element={<FacilitiesPage />} />
