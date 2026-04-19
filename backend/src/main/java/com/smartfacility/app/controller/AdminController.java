@@ -6,7 +6,6 @@ import com.smartfacility.app.model.User;
 import com.smartfacility.app.repository.RoleRepository;
 import com.smartfacility.app.repository.UserRepository;
 import org.springframework.http.CacheControl;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -26,6 +25,7 @@ public class AdminController {
 
     public AdminController(UserRepository userRepository, RoleRepository roleRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
+            
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
     }
