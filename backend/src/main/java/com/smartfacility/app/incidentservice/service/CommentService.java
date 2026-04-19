@@ -13,6 +13,9 @@ import com.smartfacility.app.incidentservice.exception.UnauthorizedException;
 import com.smartfacility.app.incidentservice.model.Comment;
 import com.smartfacility.app.incidentservice.model.Ticket;
 import com.smartfacility.app.incidentservice.repository.CommentRepository;
+import com.smartfacility.app.notification.NotificationService;
+import com.smartfacility.app.notification.NotificationType;
+import com.smartfacility.app.notification.ReferenceType;
 
 import lombok.RequiredArgsConstructor;
 
@@ -22,6 +25,7 @@ public class CommentService {
     private final CommentRepository commentRepository;
     private final TicketService ticketService;
     private final CurrentUserUtil currentUserUtil;
+    private final NotificationService notificationService;
 
     public CommentResponseDTO addComment(Long ticketId, CommentRequestDTO dto) {
         // Verify ticket exists first
@@ -38,6 +42,34 @@ public class CommentService {
                 .build();
 
         Comment saved = commentRepository.save(comment);
+
+        // ── Notify ticket creator (if commenter ≠ creator) ──
+        try {
+            if (ticket.getCreatedBy() != null && !ticket.getCreatedBy().equals(userId)) {
+                notificationService.create(
+                        ticket.getCreatedBy(),
+                        NotificationType.TICKET_COMMENT_ADDED,
+                        "New Comment on Ticket #" + ticket.getId(),
+                        "A new comment was added to your ticket at " + ticket.getResourceLocation() + ".",
+                        ReferenceType.TICKET,
+                        ticket.getId()
+                );
+            }
+            // Notify assigned technician (if commenter ≠ technician)
+            if (ticket.getAssignTo() != null
+                    && !ticket.getAssignTo().equals(userId)
+                    && !ticket.getAssignTo().equals(ticket.getCreatedBy())) {
+                notificationService.create(
+                        ticket.getAssignTo(),
+                        NotificationType.TICKET_COMMENT_ADDED,
+                        "New Comment on Ticket #" + ticket.getId(),
+                        "A new comment was added to the ticket at " + ticket.getResourceLocation() + ".",
+                        ReferenceType.TICKET,
+                        ticket.getId()
+                );
+            }
+        } catch (Exception ignored) { /* don't let notification failure break the flow */ }
+
         return mapToResponse(saved);
     }
     public CommentResponseDTO editComment(Long ticketId, Long commentId, CommentRequestDTO dto) {

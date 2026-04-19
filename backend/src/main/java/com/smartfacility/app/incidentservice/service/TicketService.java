@@ -20,6 +20,9 @@ import com.smartfacility.app.incidentservice.exception.ResourceNotFoundException
 import com.smartfacility.app.incidentservice.exception.UnauthorizedException;
 import com.smartfacility.app.incidentservice.model.Ticket;
 import com.smartfacility.app.incidentservice.repository.TicketRepository;
+import com.smartfacility.app.notification.NotificationService;
+import com.smartfacility.app.notification.NotificationType;
+import com.smartfacility.app.notification.ReferenceType;
 
 import lombok.RequiredArgsConstructor;
 
@@ -30,6 +33,7 @@ public class TicketService {
 
     private final TicketRepository ticketRepository;
     private final CurrentUserUtil currentUserUtil;
+    private final NotificationService notificationService;
 
     //create
     public TicketResponseDTO createTicket(TicketRequestDTO dto){
@@ -151,7 +155,22 @@ public class TicketService {
         }
 
         ticket.setStatus(dto.getStatus());
-        return mapToResponse(ticketRepository.save(ticket));
+        Ticket saved = ticketRepository.save(ticket);
+
+        // ── Notify ticket creator about the status change ──
+        try {
+            String statusLabel = dto.getStatus().name().replace("_", " ").toLowerCase();
+            notificationService.create(
+                    ticket.getCreatedBy(),
+                    NotificationType.TICKET_STATUS_CHANGED,
+                    "Ticket #" + ticket.getId() + " — Status Updated",
+                    "Your ticket has been moved to " + statusLabel + ".",
+                    ReferenceType.TICKET,
+                    ticket.getId()
+            );
+        } catch (Exception ignored) { /* don't let notification failure break the flow */ }
+
+        return mapToResponse(saved);
     }
 
     // ─── ASSIGN TECHNICIAN ────────────────────────────────────
@@ -168,7 +187,21 @@ public class TicketService {
             ticket.setStatus(TicketStatus.IN_PROGRESS);
         }
 
-        return mapToResponse(ticketRepository.save(ticket));
+        Ticket saved = ticketRepository.save(ticket);
+
+        // ── Notify the assigned technician ──
+        try {
+            notificationService.create(
+                    dto.getTechnicianId(),
+                    NotificationType.TICKET_ASSIGNED,
+                    "Ticket #" + ticket.getId() + " Assigned to You",
+                    "You have been assigned to ticket at " + ticket.getResourceLocation() + ".",
+                    ReferenceType.TICKET,
+                    ticket.getId()
+            );
+        } catch (Exception ignored) { /* don't let notification failure break the flow */ }
+
+        return mapToResponse(saved);
     }
 
     // ─── STATE MACHINE ────────────────────────────────────────

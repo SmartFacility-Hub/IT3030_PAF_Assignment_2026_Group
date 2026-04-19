@@ -114,5 +114,17 @@ export const authApi = {
     api.post('/api/auth/login', { email, password }),
 };
 
+// ── Notification API helpers ─────────────────────────────────────────────────
+export const notificationApi = {
+  /** Get all notifications (max 50, newest first) */
+  fetchAll: () => api.get('/api/notifications'),
+  /** Get unread count for badge */
+  unreadCount: () => api.get('/api/notifications/unread-count'),
+  /** Mark one notification as read */
+  markRead: (id) => api.put(`/api/notifications/${id}/read`),
+  /** Mark all notifications as read */
+  markAllRead: () => api.put('/api/notifications/read-all'),
+};
+
 export default api;
 export { API_BASE_URL };

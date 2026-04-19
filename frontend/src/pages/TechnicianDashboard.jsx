@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { ticketApi, API_BASE_URL } from "../services/api";
+import NotificationBell from "../components/NotificationBell";
 import { ticketApi, resolveAttachmentImageSrc } from "../services/api";
 
 // ─── Theme Definitions ────────────────────────────────────────────────────────
@@ -592,6 +594,7 @@ export default function TechnicianDashboard() {
             <span className="td-user-name">{user?.name || "Technician"}</span>
           </div>
           <span className="td-role-badge">Technician</span>
+          <NotificationBell />
           <button className="td-theme-toggle" onClick={toggle} title="Toggle theme">
             {themes[theme]["--toggle-icon"]}
           </button>
