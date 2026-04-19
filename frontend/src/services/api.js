@@ -49,6 +49,9 @@ export const ticketApi = {
   // Get one ticket by id
   getById: (id) => api.get(`/api/tickets/${id}`),
 
+  // Permanently delete ticket (admin only; backend allows CLOSED or REJECTED)
+  delete: (id) => api.delete(`/api/tickets/${id}`),
+
   // Update ticket status (+ optional reason / resolutionNotes)
   updateStatus: (id, dto) => api.put(`/api/tickets/${id}/status`, dto),
 

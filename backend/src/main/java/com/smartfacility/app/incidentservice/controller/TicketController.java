@@ -88,5 +88,11 @@ public class TicketController {
         return ResponseEntity.noContent().build();
     }
 
+    // DELETE /api/tickets/{id} — permanently remove ticket (admin only; closed or rejected)
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteTicket(@PathVariable Long id) {
+        ticketService.deleteTicketAsAdmin(id);
+        return ResponseEntity.noContent().build();
+    }
 
 }

@@ -5,6 +5,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.smartfacility.app.incidentservice.config.CurrentUserUtil;
 import com.smartfacility.app.incidentservice.dto.request.AssignTechnicianDTO;
@@ -221,6 +222,19 @@ public class TicketService {
         } catch (Exception ignored) { /* don't let notification failure break the flow */ }
 
         return mapToResponse(saved);
+    }
+
+    /** Permanently removes a ticket. Only admins; only terminal CLOSED or REJECTED tickets. */
+    @Transactional
+    public void deleteTicketAsAdmin(Long id) {
+        if (!currentUserUtil.isAdmin()) {
+            throw new UnauthorizedException("Only administrators can delete tickets");
+        }
+        Ticket ticket = findTicketOrThrow(id);
+        if (ticket.getStatus() != TicketStatus.CLOSED && ticket.getStatus() != TicketStatus.REJECTED) {
+            throw new BadRequestException("Only closed or rejected tickets can be deleted");
+        }
+        ticketRepository.delete(ticket);
     }
 
     // ─── STATE MACHINE ────────────────────────────────────────
