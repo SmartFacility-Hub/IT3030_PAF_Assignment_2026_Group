@@ -10,7 +10,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -54,7 +53,7 @@ public class AdminController {
      */
     @PutMapping("/users/{id}/roles")
     public ResponseEntity<?> updateUserRoles(@PathVariable Long id,
-                                              @RequestBody Map<String, List<String>> body) {
+            @RequestBody Map<String, List<String>> body) {
         Optional<User> userOpt = userRepository.findById(id);
         if (userOpt.isEmpty()) {
             return ResponseEntity.status(404).body(Map.of("error", "User not found"));

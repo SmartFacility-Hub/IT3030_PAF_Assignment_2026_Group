@@ -17,7 +17,6 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 @Component
@@ -31,8 +30,8 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
     private String frontendUrl;
 
     public OAuth2SuccessHandler(UserRepository userRepository,
-                                 RoleRepository roleRepository,
-                                 JwtUtils jwtUtils) {
+            RoleRepository roleRepository,
+            JwtUtils jwtUtils) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.jwtUtils = jwtUtils;
@@ -40,8 +39,8 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request,
-                                         HttpServletResponse response,
-                                         Authentication authentication)
+            HttpServletResponse response,
+            Authentication authentication)
             throws IOException, ServletException {
 
         OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();

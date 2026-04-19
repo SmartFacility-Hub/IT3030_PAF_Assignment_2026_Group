@@ -106,6 +106,13 @@ export function resolveAttachmentImageSrc(attachment, ticketId) {
       : `/api/tickets/${ticketId}/attachments/${attachment?.id}/download`;
   return `${API_BASE_URL}${path}`;
 }
+// ── Auth API helpers ─────────────────────────────────────────────────────────
+export const authApi = {
+  register: (name, email, password) =>
+    api.post('/api/auth/register', { name, email, password }),
+  login: (email, password) =>
+    api.post('/api/auth/login', { email, password }),
+};
 
 export default api;
 export { API_BASE_URL };
