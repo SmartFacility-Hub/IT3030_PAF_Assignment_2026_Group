@@ -42,7 +42,6 @@ public class TicketService {
             .category(dto.getCategory())
             .description(dto.getDescription())
             .priority(dto.getPriority())
-            .contactDetails(dto.getContactDetails())
             .status(TicketStatus.OPEN)  // always starts as OPEN
             .createdBy(userId)
             .build();
@@ -116,6 +115,19 @@ public class TicketService {
         if (!currentUserUtil.isAdmin() && !isAssignedTechnician) {
             throw new UnauthorizedException(
                 "Only admins or the assigned technician can update the ticket status");
+        }
+
+        // Technicians may mark in-progress work as resolved only — rejection and other transitions are admin-only
+        if (isAssignedTechnician && !currentUserUtil.isAdmin()) {
+            if (dto.getStatus() == TicketStatus.REJECTED) {
+                throw new UnauthorizedException("Only administrators can reject tickets");
+            }
+            boolean techAllowed = ticket.getStatus() == TicketStatus.IN_PROGRESS
+                    && dto.getStatus() == TicketStatus.RESOLVED;
+            if (!techAllowed) {
+                throw new UnauthorizedException(
+                    "Technicians may only mark in-progress tickets as resolved");
+            }
         }
 
         // Validate the status transition is allowed
@@ -206,7 +218,6 @@ public class TicketService {
                 .description(ticket.getDescription())
                 .priority(ticket.getPriority())
                 .status(ticket.getStatus())
-                .contactDetails(ticket.getContactDetails())
                 .createdBy(ticket.getCreatedBy())
                 .assignedTo(ticket.getAssignTo())
                 .resolutionNotes(ticket.getResolutionNotes())

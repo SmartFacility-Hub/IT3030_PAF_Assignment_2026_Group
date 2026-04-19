@@ -4,6 +4,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import AdminLayout from "./components/AdminLayout";
 import HomePage from "./pages/HomePage";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminIncidentsPage from "./pages/AdminIncidentsPage";
 import UserDashboard from "./pages/UserDashboard";
 import TechnicianDashboard from "./pages/TechnicianDashboard";
 import OAuthCallback from "./pages/OAuthCallback";
@@ -25,7 +26,7 @@ function App() {
 
           {/* Technician */}
           <Route path="/technician" element={
-            <ProtectedRoute requiredRoles={["ROLE_TECHNICIAN", "ROLE_ADMIN"]}>
+            <ProtectedRoute requiredRole="ROLE_TECHNICIAN">
               <TechnicianDashboard />
             </ProtectedRoute>
           } />
@@ -37,18 +38,10 @@ function App() {
             </ProtectedRoute>
           }>
             <Route index element={<AdminDashboard />} />
+            <Route path="incidents" element={<AdminIncidentsPage />} />
             <Route path="facilities" element={<FacilitiesPage />} />
           </Route>
 
-          {/* Protected: TECHNICIAN or ADMIN */}
-          <Route
-            path="/technician"
-            element={
-              <ProtectedRoute requiredRole="ROLE_TECHNICIAN">
-                <TechnicianDashboard />
-              </ProtectedRoute>
-            }
-          />
         </Routes>
       </Router>
     </AuthProvider>

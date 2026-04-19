@@ -26,6 +26,9 @@ public class CommentService {
     public CommentResponseDTO addComment(Long ticketId, CommentRequestDTO dto) {
         // Verify ticket exists first
         Ticket ticket = ticketService.findTicketOrThrow(ticketId);
+        if (currentUserUtil.isAdmin()) {
+            throw new UnauthorizedException("Administrators cannot add comments to tickets");
+        }
         String userId = currentUserUtil.getCurrentUserId();
 
         Comment comment = Comment.builder()
