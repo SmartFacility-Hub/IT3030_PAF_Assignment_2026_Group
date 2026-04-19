@@ -34,17 +34,20 @@ export function AuthProvider({ children }) {
     if (storedToken) {
       const decoded = decodeToken(storedToken);
       if (decoded && decoded.exp * 1000 > Date.now()) {
-        setUser({
+        const userObj = {
           email: decoded.sub,
           name: decoded.name,
           picture: decoded.picture,
           userId: decoded.userId,
           roles: decoded.roles || [],
-        });
+        };
+        setUser(userObj);
         setToken(storedToken);
+        localStorage.setItem('userEmail', decoded.sub);
       } else {
         // Token expired
         localStorage.removeItem('token');
+        localStorage.removeItem('userEmail');
         setToken(null);
       }
     }
@@ -64,11 +67,13 @@ export function AuthProvider({ children }) {
         userId: decoded.userId,
         roles: decoded.roles || [],
       });
+      localStorage.setItem('userEmail', decoded.sub);
     }
   }, []);
 
   const logout = useCallback(() => {
     localStorage.removeItem('token');
+    localStorage.removeItem('userEmail');
     setToken(null);
     setUser(null);
   }, []);

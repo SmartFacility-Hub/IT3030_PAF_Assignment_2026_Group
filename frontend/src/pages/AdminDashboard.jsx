@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import api from "../services/api";
+import api, { ticketApi } from "../services/api";
 import BookingStatusBadge from "../components/BookingStatusBadge";
 import RejectModal from "../components/RejectModal";
 import { getAllBookings, approveBooking, rejectBooking } from "../services/bookingService";
@@ -259,7 +259,78 @@ const styles = `
   @media (max-width: 768px) {
     .kpi-grid { grid-template-columns: 1fr 1fr; }
     .content-grid-3 { grid-template-columns: 1fr; }
+    .main-content { padding: 20px 16px; }
   }
+
+  /* ── Admin Modals ── */
+  .adm-modal-overlay {
+    position: fixed; inset: 0; z-index: 300;
+    background: rgba(0,0,0,0.55); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center; padding: 24px;
+  }
+  .adm-modal {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 28px;
+    width: 100%; max-width: 460px; box-shadow: var(--shadow-card);
+  }
+  .adm-modal-title {
+    font-family: var(--font-display); font-size: 17px; font-weight: 700;
+    color: var(--text-primary); margin-bottom: 20px;
+  }
+  .adm-form-group { margin-bottom: 16px; }
+  .adm-label {
+    display: block; font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+    color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;
+  }
+  .adm-select, .adm-textarea {
+    width: 100%; padding: 10px 14px;
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); color: var(--text-primary);
+    font-family: var(--font-body); font-size: 13px; outline: none;
+    transition: border-color 0.2s;
+  }
+  .adm-select:focus, .adm-textarea:focus { border-color: var(--accent-border); }
+  .adm-textarea { resize: vertical; min-height: 72px; }
+  .adm-select option { background: var(--bg-surface); }
+  .adm-modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+  .adm-error {
+    padding: 10px 14px; background: var(--status-red-bg); border: 1px solid var(--status-red);
+    border-radius: var(--radius-sm); color: var(--status-red); font-size: 13px; margin-bottom: 14px;
+  }
+  .adm-row-actions { display: flex; gap: 6px; }
+  .adm-action-btn {
+    padding: 4px 10px; border-radius: var(--radius-sm);
+    font-family: var(--font-mono); font-size: 10px; cursor: pointer;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--text-muted); transition: all 0.15s;
+  }
+  .adm-action-btn:hover { border-color: var(--accent-border); color: var(--accent); }
+  .adm-action-btn.assign:hover { border-color: var(--status-blue, #60a5fa); color: var(--status-blue, #60a5fa); }
+
+  /* Panel Styles */
+  .adm-panel-overlay { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.4); backdrop-filter: blur(2px); }
+  .adm-panel {
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: 1001; width: 440px; max-width: 90vw;
+    background: var(--bg-surface); border-left: 1px solid var(--border); display: flex; flex-direction: column;
+    box-shadow: -10px 0 40px rgba(0,0,0,0.3); animation: admSlideIn 0.3s ease;
+  }
+  @keyframes admSlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+  .adm-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid var(--border); }
+  .adm-panel-title { font-family: var(--font-display); font-size: 16px; font-weight: 700; color: var(--text-primary); }
+  .adm-panel-close { background: none; border: none; font-size: 18px; color: var(--text-muted); cursor: pointer; }
+  .adm-panel-body { flex: 1; overflow-y: auto; padding: 24px; }
+  .adm-detail-field { margin-bottom: 18px; }
+  .adm-detail-label { font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; }
+  .adm-detail-value { font-size: 14px; color: var(--text-secondary); line-height: 1.5; }
+  .adm-divider { border: 0; border-top: 1px solid var(--border); margin: 24px 0; }
+  .adm-comment-item { padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .adm-comment-meta { display: flex; justify-content: space-between; margin-bottom: 6px; }
+  .adm-comment-author { font-size: 11px; font-weight: 700; color: var(--text-primary); }
+  .adm-comment-time { font-size: 10px; color: var(--text-muted); }
+  .adm-comment-text { font-size: 13px; color: var(--text-secondary); line-height: 1.4; white-space: pre-wrap; }
+  .adm-comment-actions { display: flex; gap: 12px; margin-top: 8px; }
+  .adm-add-comment { margin-top: 24px; }
+  .adm-textarea { width: 100%; border: 1px solid var(--border); border-radius: 4px; padding: 10px; background: var(--bg-elevated); color: var(--text-primary); font-size: 13px; }
 `;
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
@@ -299,13 +370,139 @@ const recentBookings = [
   { id: "BK-1038", resource: "Auditorium",      user: "Dr. K. Mendis",  date: "8 Apr",  time: "09:00–13:00", status: "rejected" },
 ];
 
-const openTickets = [
-  { id: "INC-092", title: "Projector fault — Lab A-102",       priority: "High",   status: "open",     assignee: "Unassigned"     },
-  { id: "INC-091", title: "AC not cooling — Block B Room 201", priority: "Medium", status: "progress", assignee: "T. Kumara"      },
-  { id: "INC-090", title: "Network switch fault — Server Rm.", priority: "High",   status: "progress", assignee: "R. Fernando"    },
-  { id: "INC-089", title: "Door lock malfunction — Lab 5",     priority: "Low",    status: "open",     assignee: "Unassigned"     },
-  { id: "INC-087", title: "Whiteboard damage — Room 304",      priority: "Low",    status: "resolved", assignee: "P. Gunawardana" },
-];
+// ─── Status helpers ───────────────────────────────────────────────────────────
+const STATUS_DOT   = { OPEN:"var(--status-red)", IN_PROGRESS:"var(--status-amber)", RESOLVED:"var(--status-green)", CLOSED:"var(--text-muted)", REJECTED:"var(--status-red)" };
+const STATUS_BG    = { OPEN:"var(--status-red-bg)", IN_PROGRESS:"var(--status-amber-bg)", RESOLVED:"var(--status-green-bg)", CLOSED:"var(--bg-elevated)", REJECTED:"var(--status-red-bg)" };
+const STATUS_CLR   = { OPEN:"var(--status-red)", IN_PROGRESS:"var(--status-amber)", RESOLVED:"var(--status-green)", CLOSED:"var(--text-muted)", REJECTED:"var(--status-red)" };
+const STATUS_LABEL = { OPEN:"Open", IN_PROGRESS:"In Progress", RESOLVED:"Resolved", CLOSED:"Closed", REJECTED:"Rejected" };
+const PRIO_BG      = { HIGH:"var(--status-red-bg)", CRITICAL:"var(--status-red-bg)", MEDIUM:"var(--status-amber-bg)", LOW:"var(--bg-elevated)" };
+const PRIO_CLR     = { HIGH:"var(--status-red)", CRITICAL:"var(--status-red)", MEDIUM:"var(--status-amber)", LOW:"var(--text-muted)" };
+const VALID_NEXT   = { OPEN:["IN_PROGRESS","REJECTED"], IN_PROGRESS:["RESOLVED","REJECTED"], RESOLVED:["CLOSED"], CLOSED:[], REJECTED:[] };
+
+// ─── Assign Technician Modal ──────────────────────────────────────────────────
+function AssignModal({ ticket, technicians, onClose, onDone }) {
+  const [techEmail, setTechEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async e => {
+    e.preventDefault();
+    if (!techEmail) { setError("Please select a technician."); return; }
+    setLoading(true);
+    try {
+      await ticketApi.assign(ticket.id, techEmail);
+      onDone();
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to assign technician.");
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div className="adm-modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="adm-modal">
+        <div className="adm-modal-title">👷 Assign Technician — Ticket #{ticket.id}</div>
+        {error && <div className="adm-error">{error}</div>}
+        <form onSubmit={handleSubmit}>
+          <div className="adm-form-group">
+            <label className="adm-label">Technician</label>
+            <select className="adm-select" value={techEmail} onChange={e => setTechEmail(e.target.value)}>
+              {technicians.length === 0 ? (
+                <option value="">— No technicians available —</option>
+              ) : (
+                <>
+                  <option value="">— Select technician —</option>
+                  {technicians.map(t => (
+                    <option key={t.email} value={t.email}>{t.name} ({t.email})</option>
+                  ))}
+                </>
+              )}
+            </select>
+            {technicians.length === 0 && (
+              <p style={{ fontSize: '11px', color: 'var(--status-amber)', marginTop: '8px', lineHeight: '1.4' }}>
+                💡 <strong>Tip:</strong> Promote users to Technicians first using the <strong>Users & Roles</strong> table below.
+              </p>
+            )}
+          </div>
+          <div className="adm-modal-footer">
+            <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn-primary" disabled={loading}>
+              {loading ? "Assigning…" : "Assign"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── Update Status Modal ──────────────────────────────────────────────────────
+function StatusModal({ ticket, onClose, onDone }) {
+  const nextOptions = VALID_NEXT[ticket.status] || [];
+  const [status, setStatus] = useState(nextOptions[0] || "");
+  const [reason, setReason] = useState("");
+  const [notes, setNotes] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async e => {
+    e.preventDefault();
+    if (status === "REJECTED" && !reason.trim()) { setError("Rejection reason required."); return; }
+    if (status === "RESOLVED" && !notes.trim()) { setError("Resolution notes required."); return; }
+    setLoading(true);
+    try {
+      await ticketApi.updateStatus(ticket.id, { status, reason, resolutionNotes: notes });
+      onDone();
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to update status.");
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div className="adm-modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="adm-modal">
+        <div className="adm-modal-title">⚙️ Update Status — Ticket #{ticket.id}</div>
+        {error && <div className="adm-error">{error}</div>}
+        {nextOptions.length === 0 ? (
+          <p style={{ fontSize:13, color:"var(--text-muted)" }}>Terminal state — no further updates allowed.</p>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            <div className="adm-form-group">
+              <label className="adm-label">New Status</label>
+              <select className="adm-select" value={status} onChange={e => setStatus(e.target.value)}>
+                {nextOptions.map(s => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
+              </select>
+            </div>
+            {status === "REJECTED" && (
+              <div className="adm-form-group">
+                <label className="adm-label">Rejection Reason *</label>
+                <textarea className="adm-textarea" value={reason} onChange={e => setReason(e.target.value)}
+                  placeholder="Explain why…" />
+              </div>
+            )}
+            {status === "RESOLVED" && (
+              <div className="adm-form-group">
+                <label className="adm-label">Resolution Notes *</label>
+                <textarea className="adm-textarea" value={notes} onChange={e => setNotes(e.target.value)}
+                  placeholder="Describe what was done…" />
+              </div>
+            )}
+            <div className="adm-modal-footer">
+              <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
+              <button type="submit" className="btn-primary" disabled={loading}>
+                {loading ? "Saving…" : "Update"}
+              </button>
+            </div>
+          </form>
+        )}
+        {nextOptions.length === 0 && (
+          <div className="adm-modal-footer">
+            <button className="btn-ghost" onClick={onClose}>Close</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 const resourceUtilisation = [
   { name: "Lecture Halls", pct: 82, color: "#f5a623" },
@@ -371,23 +568,165 @@ function Donut({ segments }) {
   );
 }
 
+// ─── Ticket Detail Panel ──────────────────────────────────────────────────────
+function TicketDetailPanel({ ticket, onClose, onRefresh }) {
+  const { user } = useAuth();
+  const [comments, setComments] = useState(ticket.comments || []);
+  const [newComment, setNewComment] = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [editingText, setEditingText] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleAddComment = async () => {
+    if (!newComment.trim()) return;
+    setSubmitting(true);
+    try {
+      const res = await ticketApi.addComment(ticket.id, newComment.trim());
+      setComments(c => [...c, res.data]);
+      setNewComment("");
+    } catch (_) {} finally { setSubmitting(false); }
+  };
+
+  const handleEditSave = async (commentId) => {
+    try {
+      const res = await ticketApi.editComment(ticket.id, commentId, editingText);
+      setComments(c => c.map(x => x.id === commentId ? res.data : x));
+      setEditingId(null);
+    } catch (_) {}
+  };
+
+  const handleDelete = async (commentId) => {
+    if (!window.confirm("Delete this comment?")) return;
+    try {
+      await ticketApi.deleteComment(ticket.id, commentId);
+      setComments(c => c.filter(x => x.id !== commentId));
+    } catch (_) {}
+  };
+
+  const fmt = d => d ? new Date(d).toLocaleString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '—';
+
+  return (
+    <>
+      <div className="adm-panel-overlay" onClick={onClose} />
+      <aside className="adm-panel">
+        <div className="adm-panel-header">
+          <div className="adm-panel-title">🎫 Incident Details — #{ticket.id}</div>
+          <button className="adm-panel-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="adm-panel-body">
+          <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+            <span className="badge" style={{ background: STATUS_BG[ticket.status], color: STATUS_CLR[ticket.status] }}>
+              {STATUS_LABEL[ticket.status]}
+            </span>
+            <span className="badge" style={{ background: PRIO_BG[ticket.priority], color: PRIO_CLR[ticket.priority] }}>
+              {ticket.priority}
+            </span>
+          </div>
+
+          <div className="adm-detail-field">
+            <div className="adm-detail-label">Location</div>
+            <div className="adm-detail-value"><strong>{ticket.resourceLocation}</strong></div>
+          </div>
+          <div className="adm-detail-field">
+            <div className="adm-detail-label">Description</div>
+            <div className="adm-detail-value">{ticket.description}</div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+             <div className="adm-detail-field" style={{ margin: 0 }}>
+               <div className="adm-detail-label">Contact</div>
+               <div className="adm-detail-value">{ticket.contactDetails}</div>
+             </div>
+             <div className="adm-detail-field" style={{ margin: 0 }}>
+               <div className="adm-detail-label">Assigned</div>
+               <div className="adm-detail-value">{ticket.assignedTo || "None"}</div>
+             </div>
+          </div>
+
+          <hr className="adm-divider" />
+          <div className="adm-detail-label" style={{ marginBottom: 12 }}>Comments ({comments.length})</div>
+
+          <div className="adm-comment-list">
+            {comments.map(c => (
+              <div key={c.id} className="adm-comment-item">
+                <div className="adm-comment-meta">
+                  <span className="adm-comment-author">{c.createdBy}</span>
+                  <span className="adm-comment-time">{fmt(c.createdAt)}</span>
+                </div>
+                {editingId === c.id ? (
+                  <>
+                    <textarea className="adm-textarea" style={{ minHeight: 60 }}
+                      value={editingText} onChange={e => setEditingText(e.target.value)} />
+                    <div className="adm-comment-actions">
+                      <button className="adm-action-btn" onClick={() => handleEditSave(c.id)}>Save</button>
+                      <button className="adm-action-btn" onClick={() => setEditingId(null)}>Cancel</button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="adm-comment-text">{c.content}</div>
+                    <div className="adm-comment-actions">
+                      {c.isOwner && (
+                        <button className="adm-action-btn"
+                          onClick={() => { setEditingId(c.id); setEditingText(c.content); }}>Edit</button>
+                      )}
+                      {(c.isOwner || user?.roles?.some(r => r === 'ROLE_ADMIN')) && (
+                        <button className="adm-action-btn" style={{ color: 'var(--status-red)' }}
+                          onClick={() => handleDelete(c.id)}>Delete</button>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="adm-add-comment">
+            <textarea className="adm-textarea" placeholder="Add a comment…"
+              value={newComment} onChange={e => setNewComment(e.target.value)} />
+            <button className="btn-primary" style={{ marginTop: 8, width: '100%' }}
+              onClick={handleAddComment} disabled={submitting || !newComment.trim()}>
+              {submitting ? "Posting…" : "Post Comment"}
+            </button>
+          </div>
+        </div>
+      </aside>
+    </>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  
+  const [tickets, setTickets] = useState([]);
+  const [ticketsLoading, setTicketsLoading] = useState(false);
+  const [assigning, setAssigning] = useState(null);  // ticket to assign
+  const [statusUpdating, setStatusUpdating] = useState(null); // ticket to update status
+  const [selectedTicket, setSelectedTicket] = useState(null);
+  
   const [bookings, setBookings] = useState([]);
   const [bookingsLoading, setBookingsLoading] = useState(false);
   const [bookingsError, setBookingsError] = useState("");
   const [bookingsSuccess, setBookingsSuccess] = useState("");
+  const location = useLocation();
+  const showAnalytics = location.pathname === "/admin/analytics";
+  
   const [approvals,    setApprovals]    = useState([]);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectTarget, setRejectTarget] = useState(null);
   const [rejectBusy, setRejectBusy] = useState(false);
   const [allUsers,     setAllUsers]     = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
-  const location = useLocation();
-  const showAnalytics = location.pathname === "/admin/analytics";
 
-  const kpi = useCounter({ bookings: bookings.length, assets: 382, incidents: 47, uptime: 99 });
+  const openCount = tickets.filter(t => t.status === "OPEN" || t.status === "IN_PROGRESS").length;
+
+  const kpi = useCounter({
+  bookings: bookings.length,
+  assets: 382,
+  incidents: openCount,
+  uptime: 99
+});
 
   const fetchBookings = useCallback(async () => {
     setBookingsLoading(true);
@@ -476,7 +815,20 @@ export default function AdminDashboard() {
     }
   }, []);
 
-  useEffect(() => { fetchUsers(); }, [fetchUsers]);
+  // Fetch all tickets
+  const fetchTickets = useCallback(async () => {
+    setTicketsLoading(true);
+    try {
+      const res = await ticketApi.fetchAll();
+      setTickets(res.data);
+    } catch (err) {
+      console.error('Failed to fetch tickets:', err);
+    } finally {
+      setTicketsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchUsers(); fetchTickets(); }, [fetchUsers, fetchTickets]);
 
   const handleRoleChange = async (userId, newRoles) => {
     try {
@@ -491,6 +843,7 @@ export default function AdminDashboard() {
     name ? name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase() : "?";
 
   return (
+    <>
     <div style={{ padding: "32px", minHeight: "calc(100vh - 60px)" }}>
       <style dangerouslySetInnerHTML={{ __html: styles }} />
       <RejectModal
@@ -884,45 +1237,71 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className="card" style={{ gridColumn: "span 2" }}>
-          <div className="card-header">
-            <div>
-              <div className="card-title"><span className="card-title-icon">🔧</span> Open Incidents</div>
-              <div className="card-subtitle">Active maintenance tickets</div>
+          {/* Open Incidents Table — live from API */}
+          <div className="card" style={{ gridColumn: "span 2" }}>
+            <div className="card-header">
+              <div>
+                <div className="card-title"><span className="card-title-icon">🔧</span> Open Incidents</div>
+                <div className="card-subtitle">Active maintenance tickets</div>
+              </div>
+              <button className="card-action" onClick={fetchTickets}>Refresh →</button>
             </div>
-            <button className="card-action">Manage all →</button>
+            <div className="table-wrap">
+              {ticketsLoading ? (
+                <div style={{ padding:"24px", textAlign:"center", color:"var(--text-muted)", fontFamily:"var(--font-mono)", fontSize:12 }}>Loading…</div>
+              ) : tickets.length === 0 ? (
+                <div style={{ padding:"24px", textAlign:"center", color:"var(--text-muted)", fontFamily:"var(--font-mono)", fontSize:12 }}>✅ No open tickets.</div>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Ticket ID</th>
+                      <th>Location</th>
+                      <th>Priority</th>
+                      <th>Status</th>
+                      <th>Assigned To</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tickets.map(t => (
+                      <tr key={t.id} onClick={(e) => {
+                        if (e.target.tagName !== 'BUTTON') setSelectedTicket(t);
+                      }} style={{ cursor: 'pointer' }}>
+                        <td style={{ fontFamily:"var(--font-mono)", fontSize:12 }}>#{t.id}</td>
+                        <td>{t.resourceLocation}</td>
+                        <td>
+                          <span className="badge" style={{ background: PRIO_BG[t.priority], color: PRIO_CLR[t.priority] }}>
+                            {t.priority}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="badge" style={{ background: STATUS_BG[t.status], color: STATUS_CLR[t.status] }}>
+                            <span className="badge-dot" style={{ background: STATUS_DOT[t.status] }} />
+                            {STATUS_LABEL[t.status]}
+                          </span>
+                        </td>
+                        <td style={{ fontSize:12, color: t.assignedTo ? "var(--text-secondary)" : "var(--status-red)" }}>
+                          {t.assignedTo || "Unassigned"}
+                        </td>
+                        <td>
+                          <div className="adm-row-actions">
+                            <button className="adm-action-btn assign"
+                              onClick={(e) => { e.stopPropagation(); setAssigning(t); }}>Assign</button>
+                            <button className="adm-action-btn"
+                              onClick={(e) => { e.stopPropagation(); setStatusUpdating(t); }}
+                              disabled={t.status === "CLOSED" || t.status === "REJECTED"}>Status</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr><th>Ticket ID</th><th>Issue</th><th>Priority</th><th>Status</th><th>Assigned To</th></tr>
-              </thead>
-              <tbody>
-                {openTickets.map(t => (
-                  <tr key={t.id}>
-                    <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{t.id}</td>
-                    <td>{t.title}</td>
-                    <td>
-                      <span className={`badge ${t.priority === "High" ? "open" : t.priority === "Medium" ? "progress" : "closed"}`}>
-                        {t.priority}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`badge ${t.status}`}>
-                        <span className="badge-dot" style={{
-                          background: t.status === "open" ? "var(--status-red)" : t.status === "progress" ? "var(--status-amber)" : "var(--status-green)"
-                        }} />
-                        {t.status === "progress" ? "In Progress" : t.status.charAt(0).toUpperCase() + t.status.slice(1)}
-                      </span>
-                    </td>
-                    <td style={{ color: t.assignee === "Unassigned" ? "var(--status-red)" : "var(--text-secondary)", fontSize: 12 }}>{t.assignee}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+
         </div>
-      </div>
 
       {/* Row 4: Recent Bookings */}
       <div className="card fade-in" style={{ marginBottom: "32px" }}>
@@ -1075,6 +1454,40 @@ export default function AdminDashboard() {
         </>
       )}
 
-    </div>
+      </div>
+
+      {/* Assign Technician Modal */}
+      {assigning && (
+        <AssignModal
+          ticket={assigning}
+          technicians={allUsers.filter(u => {
+            const hasTechRole = u.roles?.some(r =>
+              typeof r === 'string' && r.toUpperCase().includes('TECHNICIAN')
+            );
+            return hasTechRole;
+          })}
+          onClose={() => setAssigning(null)}
+          onDone={() => { setAssigning(null); fetchTickets(); }}
+        />
+      )}
+
+      {/* Update Status Modal */}
+      {statusUpdating && (
+        <StatusModal
+          ticket={statusUpdating}
+          onClose={() => setStatusUpdating(null)}
+          onDone={() => { setStatusUpdating(null); fetchTickets(); }}
+        />
+      )}
+
+      {/* Ticket Detail Panel */}
+      {selectedTicket && (
+        <TicketDetailPanel
+          ticket={selectedTicket}
+          onClose={() => setSelectedTicket(null)}
+          onRefresh={fetchTickets}
+        />
+      )}
+    </>
   );
 }
