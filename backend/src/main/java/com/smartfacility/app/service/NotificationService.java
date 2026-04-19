@@ -17,66 +17,87 @@ public class NotificationService {
         this.notificationRepository = notificationRepository;
     }
 
-    // ── Create helpers (called from BookingService & ticket service) ──
-
-    public void notifyAdminBookingCreated(String userEmail, String facilityName, Long bookingId) {
+    // ── Generic create (used by TicketService) ────────────────
+    public void create(String recipientKey, String type,
+                       String title, String message,
+                       String referenceType, Long referenceId) {
         Notification n = new Notification();
-        n.setRecipientRole("ROLE_ADMIN");
-        n.setTriggeredBy(userEmail);
-        n.setType("BOOKING_CREATED");
-        n.setTitle("New Booking Request");
-        n.setMessage(userEmail + " requested \"" + facilityName + "\" — booking #" + bookingId);
-        n.setReferenceId(bookingId);
-        n.setReferenceType("BOOKING");
+        n.setRecipientRole(recipientKey);
+        n.setType(type);
+        n.setTitle(title);
+        n.setMessage(message);
+        n.setReferenceType(referenceType);
+        n.setReferenceId(referenceId);
         notificationRepository.save(n);
     }
 
-    public void notifyAdminTicketCreated(String userEmail, String location, Long ticketId) {
-        Notification n = new Notification();
-        n.setRecipientRole("ROLE_ADMIN");
-        n.setTriggeredBy(userEmail);
-        n.setType("TICKET_CREATED");
-        n.setTitle("New Incident Reported");
-        n.setMessage(userEmail + " reported an issue at \"" + location + "\" — ticket #" + ticketId);
-        n.setReferenceId(ticketId);
-        n.setReferenceType("TICKET");
-        notificationRepository.save(n);
+    // ── Named helpers (used by BookingService) ────────────────
+
+    public void notifyAdminBookingCreated(String userEmail,
+                                          String facilityName,
+                                          Long bookingId) {
+        create(
+            "ROLE_ADMIN",
+            "BOOKING_CREATED",
+            "New Booking Request",
+            userEmail + " requested \"" + facilityName + "\" — booking #" + bookingId,
+            "BOOKING",
+            bookingId
+        );
     }
 
-    public void notifyUserBookingApproved(String userEmail, String facilityName, Long bookingId) {
-        Notification n = new Notification();
-        n.setRecipientRole(userEmail); // target specific user
-        n.setType("BOOKING_APPROVED");
-        n.setTitle("Booking Approved");
-        n.setMessage("Your booking for \"" + facilityName + "\" (booking #" + bookingId + ") has been approved.");
-        n.setReferenceId(bookingId);
-        n.setReferenceType("BOOKING");
-        notificationRepository.save(n);
+    public void notifyAdminTicketCreated(String userEmail,
+                                         String location,
+                                         Long ticketId) {
+        create(
+            "ROLE_ADMIN",
+            "TICKET_CREATED",
+            "New Incident Reported",
+            userEmail + " reported an issue at \"" + location + "\" — ticket #" + ticketId,
+            "TICKET",
+            ticketId
+        );
     }
 
-    public void notifyUserBookingRejected(String userEmail, String facilityName, Long bookingId, String reason) {
-        Notification n = new Notification();
-        n.setRecipientRole(userEmail);
-        n.setType("BOOKING_REJECTED");
-        n.setTitle("Booking Rejected");
-        n.setMessage("Your booking for \"" + facilityName + "\" was rejected. Reason: " + reason);
-        n.setReferenceId(bookingId);
-        n.setReferenceType("BOOKING");
-        notificationRepository.save(n);
+    public void notifyUserBookingApproved(String userEmail,
+                                          String facilityName,
+                                          Long bookingId) {
+        create(
+            userEmail,
+            "BOOKING_APPROVED",
+            "Booking Approved ✅",
+            "Your booking for \"" + facilityName + "\" (#" + bookingId + ") has been approved.",
+            "BOOKING",
+            bookingId
+        );
     }
 
-    // ── Read operations ──
+    public void notifyUserBookingRejected(String userEmail,
+                                          String facilityName,
+                                          Long bookingId,
+                                          String reason) {
+        create(
+            userEmail,
+            "BOOKING_REJECTED",
+            "Booking Rejected",
+            "Your booking for \"" + facilityName + "\" was rejected. Reason: " + reason,
+            "BOOKING",
+            bookingId
+        );
+    }
 
-    public List<Map<String, Object>> getForRole(String role) {
+    // ── Read operations ───────────────────────────────────────
+
+    public List<Map<String, Object>> getForRole(String key) {
         return notificationRepository
-            .findByRecipientRoleOrderByCreatedAtDesc(role)
+            .findByRecipientRoleOrderByCreatedAtDesc(key)
             .stream()
             .map(this::toMap)
             .toList();
     }
 
-    public long getUnreadCount(String role) {
-        return notificationRepository.countByRecipientRoleAndReadFalse(role);
+    public long getUnreadCount(String key) {
+        return notificationRepository.countByRecipientRoleAndReadFalse(key);
     }
 
     public void markRead(Long id) {
@@ -86,11 +107,10 @@ public class NotificationService {
         });
     }
 
-    public void markAllRead(String role) {
-        notificationRepository.markAllReadForRole(role);
+    public void markAllRead(String key) {
+        notificationRepository.markAllReadForRole(key);
     }
 
-    // ── Map helper ──
     private Map<String, Object> toMap(Notification n) {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("id",            n.getId());

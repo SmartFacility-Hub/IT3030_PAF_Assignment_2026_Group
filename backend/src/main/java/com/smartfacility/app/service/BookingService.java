@@ -16,16 +16,19 @@ import java.util.LinkedHashMap;
 @Service
 public class BookingService {
 
-    private final BookingRepository  bookingRepository;
-    private final FacilityRepository facilityRepository;
-    private final UserRepository     userRepository;
+    private final BookingRepository    bookingRepository;
+    private final FacilityRepository   facilityRepository;
+    private final UserRepository       userRepository;
+    private final NotificationService  notificationService;
 
     public BookingService(BookingRepository bookingRepository,
                           FacilityRepository facilityRepository,
-                          UserRepository userRepository) {
-        this.bookingRepository  = bookingRepository;
-        this.facilityRepository = facilityRepository;
-        this.userRepository     = userRepository;
+                          UserRepository userRepository,
+                          NotificationService notificationService) {
+        this.bookingRepository   = bookingRepository;
+        this.facilityRepository  = facilityRepository;
+        this.userRepository      = userRepository;
+        this.notificationService = notificationService;
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -47,10 +50,12 @@ public class BookingService {
 
         // 2. Load user & facility
         User user = userRepository.findByEmail(userEmail)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found."));
+            .orElseThrow(() -> new ResponseStatusException(
+                HttpStatus.NOT_FOUND, "User not found."));
 
         Facility facility = facilityRepository.findById(facilityId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Facility not found."));
+            .orElseThrow(() -> new ResponseStatusException(
+                HttpStatus.NOT_FOUND, "Facility not found."));
 
         if (facility.getStatus() != FacilityStatus.ACTIVE) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -66,7 +71,7 @@ public class BookingService {
                 "This facility is already booked for the selected time range.");
         }
 
-        // 4. Create
+        // 4. Create & save
         Booking booking = new Booking();
         booking.setUser(user);
         booking.setFacility(facility);
@@ -76,7 +81,18 @@ public class BookingService {
         booking.setExpectedAttendees(expectedAttendees);
         booking.setStatus(BookingStatus.PENDING);
 
-        return bookingRepository.save(booking);
+        Booking saved = bookingRepository.save(booking);
+
+        // 5. ── Notify admin ──────────────────────────────────────
+        try {
+            notificationService.notifyAdminBookingCreated(
+                userEmail,
+                facility.getName(),
+                saved.getId()
+            );
+        } catch (Exception ignored) {}
+
+        return saved;
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -155,8 +171,8 @@ public class BookingService {
     // ─────────────────────────────────────────────────────────────
     public Booking approveBooking(String adminEmail, Long bookingId) {
         Booking booking = bookingRepository.findById(bookingId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                "Booking not found."));
+            .orElseThrow(() -> new ResponseStatusException(
+                HttpStatus.NOT_FOUND, "Booking not found."));
 
         if (booking.getStatus() != BookingStatus.PENDING) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -177,7 +193,18 @@ public class BookingService {
         booking.setReviewedBy(adminEmail);
         booking.setReviewedAt(LocalDateTime.now());
 
-        return bookingRepository.save(booking);
+        Booking saved = bookingRepository.save(booking);
+
+        // ── Notify the user their booking was approved ───────────
+        try {
+            notificationService.notifyUserBookingApproved(
+                saved.getUser().getEmail(),
+                saved.getFacility().getName(),
+                saved.getId()
+            );
+        } catch (Exception ignored) {}
+
+        return saved;
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -185,8 +212,8 @@ public class BookingService {
     // ─────────────────────────────────────────────────────────────
     public Booking rejectBooking(String adminEmail, Long bookingId, String reason) {
         Booking booking = bookingRepository.findById(bookingId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                "Booking not found."));
+            .orElseThrow(() -> new ResponseStatusException(
+                HttpStatus.NOT_FOUND, "Booking not found."));
 
         if (booking.getStatus() != BookingStatus.PENDING) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -198,7 +225,19 @@ public class BookingService {
         booking.setReviewedBy(adminEmail);
         booking.setReviewedAt(LocalDateTime.now());
 
-        return bookingRepository.save(booking);
+        Booking saved = bookingRepository.save(booking);
+
+        // ── Notify the user their booking was rejected ───────────
+        try {
+            notificationService.notifyUserBookingRejected(
+                saved.getUser().getEmail(),
+                saved.getFacility().getName(),
+                saved.getId(),
+                reason
+            );
+        } catch (Exception ignored) {}
+
+        return saved;
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -231,8 +270,8 @@ public class BookingService {
     // ─────────────────────────────────────────────────────────────
     private Booking getBookingOwnedBy(String userEmail, Long bookingId) {
         Booking booking = bookingRepository.findById(bookingId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                "Booking not found."));
+            .orElseThrow(() -> new ResponseStatusException(
+                HttpStatus.NOT_FOUND, "Booking not found."));
 
         if (!booking.getUser().getEmail().equals(userEmail)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,

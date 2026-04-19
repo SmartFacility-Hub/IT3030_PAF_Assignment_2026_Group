@@ -21,23 +21,22 @@ import com.smartfacility.app.incidentservice.exception.ResourceNotFoundException
 import com.smartfacility.app.incidentservice.exception.UnauthorizedException;
 import com.smartfacility.app.incidentservice.model.Ticket;
 import com.smartfacility.app.incidentservice.repository.TicketRepository;
-import com.smartfacility.app.notification.NotificationService;
-import com.smartfacility.app.notification.NotificationType;
-import com.smartfacility.app.notification.ReferenceType;
+
+// ── Unified notification service ──────────────────────────────
+import com.smartfacility.app.service.NotificationService;
 
 import lombok.RequiredArgsConstructor;
-
 
 @Service
 @RequiredArgsConstructor
 public class TicketService {
 
-    private final TicketRepository ticketRepository;
-    private final CurrentUserUtil currentUserUtil;
-    private final NotificationService notificationService;
+    private final TicketRepository    ticketRepository;
+    private final CurrentUserUtil     currentUserUtil;
+    private final NotificationService notificationService;  // unified service
 
-    //create
-    public TicketResponseDTO createTicket(TicketRequestDTO dto){
+    // ─── CREATE ───────────────────────────────────────────────
+    public TicketResponseDTO createTicket(TicketRequestDTO dto) {
         String userId = currentUserUtil.getCurrentUserId();
         if (userId == null) {
             throw new UnauthorizedException("You must be logged in to create a ticket");
@@ -48,25 +47,33 @@ public class TicketService {
             .category(dto.getCategory())
             .description(dto.getDescription())
             .priority(dto.getPriority())
-            .status(TicketStatus.OPEN)  // always starts as OPEN
+            .status(TicketStatus.OPEN)
             .createdBy(userId)
             .build();
 
-            Ticket saved = ticketRepository.save(ticket);
-            return mapToResponse(saved);
+        Ticket saved = ticketRepository.save(ticket);
 
+        // ── Notify admin about new ticket ──────────────────────
+        try {
+            notificationService.notifyAdminTicketCreated(
+                userId,
+                saved.getResourceLocation(),
+                saved.getId()
+            );
+        } catch (Exception ignored) {}
+
+        return mapToResponse(saved);
     }
+
     // ─── GET ONE ──────────────────────────────────────────────
     public TicketResponseDTO getTicketById(Long id) {
         Ticket ticket = findTicketOrThrow(id);
         String userId = currentUserUtil.getCurrentUserId();
 
-        // Admins see all tickets
         if (currentUserUtil.isAdmin()) {
             return mapToResponse(ticket);
         }
 
-        // Technicians can see tickets assigned to them
         if (currentUserUtil.isTechnician()) {
             if (!Objects.equals(ticket.getAssignTo(), userId)) {
                 throw new UnauthorizedException("You can only view tickets assigned to you");
@@ -74,7 +81,6 @@ public class TicketService {
             return mapToResponse(ticket);
         }
 
-        // Regular users can only see their own tickets
         if (!Objects.equals(ticket.getCreatedBy(), userId)) {
             throw new UnauthorizedException("You do not have permission to view this ticket");
         }
@@ -88,58 +94,49 @@ public class TicketService {
         List<Ticket> tickets;
 
         if (currentUserUtil.isAdmin()) {
-            // Admin sees all tickets, optionally filtered by status
             tickets = (status != null)
-                    ? ticketRepository.findByStatus(status)
-                    : ticketRepository.findAll();
+                ? ticketRepository.findByStatus(status)
+                : ticketRepository.findAll();
         } else if (currentUserUtil.isTechnician()) {
-            // Technician sees only tickets assigned to them
             tickets = (status != null)
-                    ? ticketRepository.findByAssignToAndStatus(userId, status)
-                    : ticketRepository.findByAssignTo(userId);
+                ? ticketRepository.findByAssignToAndStatus(userId, status)
+                : ticketRepository.findByAssignTo(userId);
         } else {
-            // Regular user sees only their own tickets
             tickets = (status != null)
-                    ? ticketRepository.findByCreatedByAndStatus(userId, status)
-                    : ticketRepository.findByCreatedBy(userId);
+                ? ticketRepository.findByCreatedByAndStatus(userId, status)
+                : ticketRepository.findByCreatedBy(userId);
         }
 
-        return tickets.stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        return tickets.stream().map(this::mapToResponse).collect(Collectors.toList());
     }
 
-     // ─── UPDATE STATUS ────────────────────────────────────────
+    // ─── UPDATE STATUS ────────────────────────────────────────
     public TicketResponseDTO updateTicketStatus(Long id, StatusUpdateDTO dto) {
         Ticket ticket = findTicketOrThrow(id);
         String userId = currentUserUtil.getCurrentUserId();
 
-        // Only admins or the assigned technician can update status
         boolean isAssignedTechnician = currentUserUtil.isTechnician()
-                && Objects.equals(ticket.getAssignTo(), userId);
+            && Objects.equals(ticket.getAssignTo(), userId);
 
         if (!currentUserUtil.isAdmin() && !isAssignedTechnician) {
             throw new UnauthorizedException(
                 "Only admins or the assigned technician can update the ticket status");
         }
 
-        // Technicians may mark in-progress work as resolved only — rejection and other transitions are admin-only
         if (isAssignedTechnician && !currentUserUtil.isAdmin()) {
             if (dto.getStatus() == TicketStatus.REJECTED) {
                 throw new UnauthorizedException("Only administrators can reject tickets");
             }
             boolean techAllowed = ticket.getStatus() == TicketStatus.IN_PROGRESS
-                    && dto.getStatus() == TicketStatus.RESOLVED;
+                && dto.getStatus() == TicketStatus.RESOLVED;
             if (!techAllowed) {
                 throw new UnauthorizedException(
                     "Technicians may only mark in-progress tickets as resolved");
             }
         }
 
-        // Validate the status transition is allowed
         validateStatusTransition(ticket.getStatus(), dto.getStatus());
 
-        // REJECTED requires a reason
         if (dto.getStatus() == TicketStatus.REJECTED) {
             if (dto.getReason() == null || dto.getReason().isBlank()) {
                 throw new BadRequestException("A reason is required when rejecting a ticket");
@@ -147,7 +144,6 @@ public class TicketService {
             ticket.setResolutionNotes("REJECTED: " + dto.getReason());
         }
 
-        // RESOLVED requires resolution notes
         if (dto.getStatus() == TicketStatus.RESOLVED) {
             if (dto.getResolutionNotes() == null || dto.getResolutionNotes().isBlank()) {
                 throw new BadRequestException("Resolution notes are required when resolving a ticket");
@@ -158,18 +154,18 @@ public class TicketService {
         ticket.setStatus(dto.getStatus());
         Ticket saved = ticketRepository.save(ticket);
 
-        // ── Notify ticket creator about the status change ──
+        // ── Notify ticket creator about the status change ──────
         try {
             String statusLabel = dto.getStatus().name().replace("_", " ").toLowerCase();
             notificationService.create(
-                    ticket.getCreatedBy(),
-                    NotificationType.TICKET_STATUS_CHANGED,
-                    "Ticket #" + ticket.getId() + " — Status Updated",
-                    "Your ticket has been moved to " + statusLabel + ".",
-                    ReferenceType.TICKET,
-                    ticket.getId()
+                ticket.getCreatedBy(),
+                "TICKET_STATUS_CHANGED",
+                "Ticket #" + ticket.getId() + " — Status Updated",
+                "Your ticket has been moved to " + statusLabel + ".",
+                "TICKET",
+                ticket.getId()
             );
-        } catch (Exception ignored) { /* don't let notification failure break the flow */ }
+        } catch (Exception ignored) {}
 
         return mapToResponse(saved);
     }
@@ -183,102 +179,101 @@ public class TicketService {
         Ticket ticket = findTicketOrThrow(id);
         ticket.setAssignTo(dto.getTechnicianId());
 
-        // Auto-move to IN_PROGRESS when technician is assigned
         if (ticket.getStatus() == TicketStatus.OPEN) {
             ticket.setStatus(TicketStatus.IN_PROGRESS);
         }
 
         Ticket saved = ticketRepository.save(ticket);
 
-        // ── Notify the assigned technician ──
+        // ── Notify the assigned technician ─────────────────────
         try {
             notificationService.create(
-                    dto.getTechnicianId(),
-                    NotificationType.TICKET_ASSIGNED,
-                    "Ticket #" + ticket.getId() + " Assigned to You",
-                    "You have been assigned to ticket at " + ticket.getResourceLocation() + ".",
-                    ReferenceType.TICKET,
-                    ticket.getId()
+                dto.getTechnicianId(),
+                "TICKET_ASSIGNED",
+                "Ticket #" + ticket.getId() + " Assigned to You",
+                "You have been assigned to ticket at \"" + ticket.getResourceLocation() + "\".",
+                "TICKET",
+                ticket.getId()
             );
-        } catch (Exception ignored) { /* don't let notification failure break the flow */ }
+        } catch (Exception ignored) {}
 
         return mapToResponse(saved);
     }
 
-    /** Permanently removes a ticket. Only admins; only terminal CLOSED or REJECTED tickets. */
+    // ─── DELETE ───────────────────────────────────────────────
     @Transactional
     public void deleteTicketAsAdmin(Long id) {
         if (!currentUserUtil.isAdmin()) {
             throw new UnauthorizedException("Only administrators can delete tickets");
         }
         Ticket ticket = findTicketOrThrow(id);
-        if (ticket.getStatus() != TicketStatus.CLOSED && ticket.getStatus() != TicketStatus.REJECTED) {
+        if (ticket.getStatus() != TicketStatus.CLOSED
+                && ticket.getStatus() != TicketStatus.REJECTED) {
             throw new BadRequestException("Only closed or rejected tickets can be deleted");
         }
         ticketRepository.delete(ticket);
     }
 
     // ─── STATE MACHINE ────────────────────────────────────────
-    // This enforces the workflow: OPEN → IN_PROGRESS → RESOLVED → CLOSED
     private void validateStatusTransition(TicketStatus current, TicketStatus next) {
         boolean valid = switch (current) {
             case OPEN        -> next == TicketStatus.IN_PROGRESS || next == TicketStatus.REJECTED;
             case IN_PROGRESS -> next == TicketStatus.RESOLVED   || next == TicketStatus.REJECTED;
             case RESOLVED    -> next == TicketStatus.CLOSED;
-            case CLOSED, REJECTED -> false; // terminal states — no further changes
+            case CLOSED, REJECTED -> false;
         };
-
         if (!valid) {
             throw new BadRequestException(
-                "Invalid status transition: " + current + " → " + next
-            );
+                "Invalid status transition: " + current + " → " + next);
         }
     }
+
     // ─── MAPPER ───────────────────────────────────────────────
     public TicketResponseDTO mapToResponse(Ticket ticket) {
         String userId = currentUserUtil.getCurrentUserId();
 
         List<AttachmentResponseDTO> attachments = ticket.getAttachments().stream()
-                .map(a -> AttachmentResponseDTO.builder()
-                        .id(a.getId())
-                        .originalFileName(a.getOriginalFileName())
-                        .fileType(a.getFileType())
-                        .uploadedAt(a.getUploadedAt())
-                        .downloadUrl(AttachmentDownloadUrls.build(a, ticket.getId()))
-                        .build())
-                .collect(Collectors.toList());
+            .map(a -> AttachmentResponseDTO.builder()
+                .id(a.getId())
+                .originalFileName(a.getOriginalFileName())
+                .fileType(a.getFileType())
+                .uploadedAt(a.getUploadedAt())
+                .downloadUrl(AttachmentDownloadUrls.build(a, ticket.getId()))
+                .build())
+            .collect(Collectors.toList());
 
         List<CommentResponseDTO> comments = ticket.getComments().stream()
-                .map(c -> CommentResponseDTO.builder()
-                        .id(c.getId())
-                        .content(c.getContent())
-                        .createdBy(c.getCreatedBy())
-                        .createdAt(c.getCreatedAt())
-                        .updatedAt(c.getUpdatedAt())
-                        .isOwner(Objects.equals(c.getCreatedBy(), userId))
-                        .build())
-                .collect(Collectors.toList());
+            .map(c -> CommentResponseDTO.builder()
+                .id(c.getId())
+                .content(c.getContent())
+                .createdBy(c.getCreatedBy())
+                .createdAt(c.getCreatedAt())
+                .updatedAt(c.getUpdatedAt())
+                .isOwner(Objects.equals(c.getCreatedBy(), userId))
+                .build())
+            .collect(Collectors.toList());
 
         return TicketResponseDTO.builder()
-                .id(ticket.getId())
-                .resourceLocation(ticket.getResourceLocation())
-                .category(ticket.getCategory())
-                .description(ticket.getDescription())
-                .priority(ticket.getPriority())
-                .status(ticket.getStatus())
-                .createdBy(ticket.getCreatedBy())
-                .assignedTo(ticket.getAssignTo())
-                .resolutionNotes(ticket.getResolutionNotes())
-                .createdAt(ticket.getCreatedAt())
-                .updatedAt(ticket.getUpdatedAt())
-                .attachments(attachments)
-                .comments(comments)
-                .build();
+            .id(ticket.getId())
+            .resourceLocation(ticket.getResourceLocation())
+            .category(ticket.getCategory())
+            .description(ticket.getDescription())
+            .priority(ticket.getPriority())
+            .status(ticket.getStatus())
+            .createdBy(ticket.getCreatedBy())
+            .assignedTo(ticket.getAssignTo())
+            .resolutionNotes(ticket.getResolutionNotes())
+            .createdAt(ticket.getCreatedAt())
+            .updatedAt(ticket.getUpdatedAt())
+            .attachments(attachments)
+            .comments(comments)
+            .build();
     }
+
     // ─── HELPER ───────────────────────────────────────────────
     public Ticket findTicketOrThrow(Long id) {
         return ticketRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Ticket not found with id: " + id));
+            .orElseThrow(() -> new ResourceNotFoundException(
+                "Ticket not found with id: " + id));
     }
-
 }
