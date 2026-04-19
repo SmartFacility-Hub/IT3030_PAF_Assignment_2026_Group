@@ -117,6 +117,19 @@ public class TicketService {
                 "Only admins or the assigned technician can update the ticket status");
         }
 
+        // Technicians may mark in-progress work as resolved only — rejection and other transitions are admin-only
+        if (isAssignedTechnician && !currentUserUtil.isAdmin()) {
+            if (dto.getStatus() == TicketStatus.REJECTED) {
+                throw new UnauthorizedException("Only administrators can reject tickets");
+            }
+            boolean techAllowed = ticket.getStatus() == TicketStatus.IN_PROGRESS
+                    && dto.getStatus() == TicketStatus.RESOLVED;
+            if (!techAllowed) {
+                throw new UnauthorizedException(
+                    "Technicians may only mark in-progress tickets as resolved");
+            }
+        }
+
         // Validate the status transition is allowed
         validateStatusTransition(ticket.getStatus(), dto.getStatus());
 
