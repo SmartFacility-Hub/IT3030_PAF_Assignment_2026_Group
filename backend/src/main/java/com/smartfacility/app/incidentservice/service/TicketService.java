@@ -23,6 +23,9 @@ import com.smartfacility.app.incidentservice.repository.TicketRepository;
 import com.smartfacility.app.notification.NotificationService;
 import com.smartfacility.app.notification.NotificationType;
 import com.smartfacility.app.notification.ReferenceType;
+import com.smartfacility.app.repository.UserRepository;
+import com.smartfacility.app.model.ERole;
+import java.util.List;
 
 import lombok.RequiredArgsConstructor;
 
@@ -32,6 +35,7 @@ import lombok.RequiredArgsConstructor;
 public class TicketService {
 
     private final TicketRepository ticketRepository;
+    private final UserRepository userRepository;
     private final CurrentUserUtil currentUserUtil;
     private final NotificationService notificationService;
 
@@ -52,6 +56,21 @@ public class TicketService {
             .build();
 
             Ticket saved = ticketRepository.save(ticket);
+
+            // ── Notify all admins about the new ticket ──
+            try {
+                userRepository.findByRolesName(ERole.ROLE_ADMIN).forEach(admin -> {
+                    notificationService.create(
+                            admin.getEmail(),
+                            NotificationType.TICKET_CREATED,
+                            "New Ticket Reported — #" + saved.getId(),
+                            "A new " + saved.getCategory() + " incident has been reported at " + saved.getResourceLocation() + ".",
+                            ReferenceType.TICKET,
+                            saved.getId()
+                    );
+                });
+            } catch (Exception ignored) { /* don't let notification failure break the flow */ }
+
             return mapToResponse(saved);
 
     }

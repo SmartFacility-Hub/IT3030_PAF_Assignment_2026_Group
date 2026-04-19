@@ -209,6 +209,7 @@ const ICON_MAP = {
   TICKET_STATUS_CHANGED: { emoji: "🔧", cls: "ticket"   },
   TICKET_COMMENT_ADDED:  { emoji: "💬", cls: "comment"  },
   TICKET_ASSIGNED:       { emoji: "👷", cls: "assign"   },
+  TICKET_CREATED:        { emoji: "🎫", cls: "ticket"   },
 };
 
 function timeAgo(iso) {
