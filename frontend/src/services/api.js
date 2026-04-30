@@ -95,10 +95,16 @@ export const adminApi = {
 
 // ── Booking API helpers ──────────────────────────────────────────────────────
 export const bookingApi = {
-  fetchMine: () => api.get('/api/bookings'),
-  create: (dto) => api.post('/api/bookings', dto),
-  update: (id, dto) => api.put(`/api/bookings/${id}`, dto),
-  cancel: (id) => api.delete(`/api/bookings/${id}`),
+  // ── User ──
+  fetchMine: ()           => api.get('/api/bookings/my'),
+  create:    (dto)        => api.post('/api/bookings', dto),
+  update:    (id, dto)    => api.put(`/api/bookings/${id}`, dto),
+  cancel:    (id)         => api.delete(`/api/bookings/${id}`),
+
+  // ── Admin ──
+  fetchAll:  (status)     => api.get('/api/bookings/admin/all', { params: status ? { status } : {} }),
+  approve:   (id)         => api.put(`/api/bookings/admin/${id}/approve`),
+  reject:    (id, reason) => api.put(`/api/bookings/admin/${id}/reject`, { reason }),
 };
 
 /** Image src for ticket attachments: uses Cloudinary HTTPS from API when present, else local download URL. */
