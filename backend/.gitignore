@@ -32,4 +32,14 @@ build/
 ### VS Code ###
 .vscode/
 
-/uploads/ 
+/uploads/
+
+.env
+.env.local
+.env.production
+backend/.env
+frontend/.env
+frontend/.env.local
+
+# Don't commit local properties override
+application-local.properties
