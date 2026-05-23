@@ -44,7 +44,7 @@ jobs:
           CLOUDINARY_API_SECRET: test
           GOOGLE_CLIENT_ID: test
           GOOGLE_CLIENT_SECRET: test
-        run: ./mvnw clean verify -Dspring.profiles.active=test
+        run: ./mvnw clean verify -Dspring.profiles.active=test -e 2>&1
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
