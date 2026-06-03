@@ -13,9 +13,7 @@ import com.smartfacility.app.incidentservice.exception.UnauthorizedException;
 import com.smartfacility.app.incidentservice.model.Comment;
 import com.smartfacility.app.incidentservice.model.Ticket;
 import com.smartfacility.app.incidentservice.repository.CommentRepository;
-import com.smartfacility.app.notification.NotificationService;
-import com.smartfacility.app.notification.NotificationType;
-import com.smartfacility.app.notification.ReferenceType;
+import com.smartfacility.app.service.NotificationService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -48,10 +46,10 @@ public class CommentService {
             if (ticket.getCreatedBy() != null && !ticket.getCreatedBy().equals(userId)) {
                 notificationService.create(
                         ticket.getCreatedBy(),
-                        NotificationType.TICKET_COMMENT_ADDED,
+                        "TICKET_COMMENT_ADDED",
                         "New Comment on Ticket #" + ticket.getId(),
                         "A new comment was added to your ticket at " + ticket.getResourceLocation() + ".",
-                        ReferenceType.TICKET,
+                        "TICKET",
                         ticket.getId()
                 );
             }
@@ -61,10 +59,10 @@ public class CommentService {
                     && !ticket.getAssignTo().equals(ticket.getCreatedBy())) {
                 notificationService.create(
                         ticket.getAssignTo(),
-                        NotificationType.TICKET_COMMENT_ADDED,
+                        "TICKET_COMMENT_ADDED",
                         "New Comment on Ticket #" + ticket.getId(),
                         "A new comment was added to the ticket at " + ticket.getResourceLocation() + ".",
-                        ReferenceType.TICKET,
+                        "TICKET",
                         ticket.getId()
                 );
             }

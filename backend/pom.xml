@@ -144,7 +144,7 @@
 			<artifactId>cloudinary-http44</artifactId>
 			<version>1.36.0</version>
 		</dependency>
-		
+
 		<!-- Use dotenv library -->
 		<dependency>
 				<groupId>me.paulschwarz</groupId>
