@@ -4,7 +4,7 @@ name: Smart Campus CI Pipeline
 # Also run on every Pull Request targeting main
 on:
   push:
-    branches: [ sample ]
+    branches: [ develop ]
   pull_request:
     branches: [ main]
 
