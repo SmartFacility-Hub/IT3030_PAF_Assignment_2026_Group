@@ -1,5 +1,6 @@
 services:
   backend:
+    image: smart-campus-backend:latest
     build:
       context: ./backend
     container_name: smart-campus-backend
@@ -9,6 +10,7 @@ services:
       - "8081:8081"
 
   frontend:
+    image: smart-campus-frontend:latest
     build:
       context: ./frontend
     container_name: smart-campus-frontend
