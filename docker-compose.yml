@@ -1,0 +1,20 @@
+services:
+  backend:
+    image: smart-campus-backend:latest
+    build:
+      context: ./backend
+    container_name: smart-campus-backend
+    env_file:
+      - ./backend/.env
+    ports:
+      - "8081:8081"
+
+  frontend:
+    image: smart-campus-frontend:latest
+    build:
+      context: ./frontend
+    container_name: smart-campus-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
